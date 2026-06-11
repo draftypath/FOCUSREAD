@@ -18,7 +18,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.90/epub.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
   <script>
     // Disable the worker so PDFs can be parsed locally without errors
     pdfjsLib.GlobalWorkerOptions.disableWorker = true;
@@ -467,13 +466,22 @@
       });
     }
 
-    // --- INITIALIZATION ---
+    // --- INITIALIZATION (Restored localStorage for 100% reliable synchronous settings) ---
     const STORAGE_KEY = 'bionic_focus_settings_v9';
     let currentRawHTML = ""; 
     let currentBionicRatio = 0.45;
     let currentViewMode = 'edit';
     
-    // Create the background Web Worker from a Blob (No extra files needed)
+    // Load Theme Synchronously to prevent Flash of Unstyled Theme
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.theme !== undefined) document.documentElement.style.setProperty('--theme-mix', `${data.theme}%`);
+      } catch (e) {}
+    }
+
+    // Create the background Web Worker from a Blob
     const bionicWorkerCode = `
       self.onmessage = function(e) {
         const { html, ratio } = e.data;
@@ -921,16 +929,22 @@
       setStatus(isYouTube(url) ? "Scraping Video..." : "Bypassing Security...");
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
-      // Helper for robust fetching through our two highly reliable proxies
+      // Helper for robust fetching through our triple reliable proxies
       const safeFetch = async (targetUrl) => {
-        try {
-          const res1 = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-          if (res1.ok) return await res1.text();
-        } catch(e) {}
-        const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-        if (!res2.ok) throw new Error("Proxies failed");
-        const data = await res2.json();
-        return data.contents;
+        const encodedUrl = encodeURIComponent(targetUrl);
+        const proxies = [
+          `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`,
+          `https://corsproxy.io/?${encodedUrl}`,
+          `https://api.allorigins.win/raw?url=${encodedUrl}`
+        ];
+        
+        for (let p of proxies) {
+          try {
+            let res = await fetch(p);
+            if (res.ok) return await res.text();
+          } catch(e) {}
+        }
+        throw new Error("All proxies failed");
       };
 
       try {
@@ -985,10 +999,10 @@
 
         // Highly resilient chain of HTML Proxies
         const proxies = [
-          { name: "Live A (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
-          { name: "Live B (AllOrigins)", fn: async () => { setStatus("Trying Route 2..."); return (await (await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`)).json()).contents; } },
-          { name: "Archive A (CorsProxy)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://corsproxy.io/?${archiveUrl}`)).text(); } },
-          { name: "Archive B (AllOrigins)", fn: async () => { return (await (await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`)).json()).contents; } }
+          { name: "Live A (CodeTabs)", fn: async () => await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`)).text() },
+          { name: "Live B (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
+          { name: "Archive A (CodeTabs)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${archiveUrl}`)).text(); } },
+          { name: "Archive B (AllOrigins)", fn: async () => { return await (await fetch(`https://api.allorigins.win/raw?url=${archiveUrl}`)).text(); } }
         ];
 
         for (const proxy of proxies) {
@@ -1079,39 +1093,36 @@
     });
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    // --- INDEXEDDB (500MB) LOAD & SAVE ---
-    async function saveSettings() {
-      // Fire & forget async save
-      if(window.idbKeyval) {
-        idbKeyval.set(STORAGE_KEY, {
+    // --- SYNCHRONOUS SETTINGS SAVE & LOAD (Restored) ---
+    function saveSettings() {
+      try {
+        const data = {
           theme: themeSlider.value, ratio: ratioSlider.value, fontSize: fontSizeSlider.value,
           lineHeight: lineHeightSlider.value, width: widthSlider.value, blur: blurSlider.value,
           text: inputText.innerHTML, viewState: currentViewMode
-        }).catch(e => console.error("IDB Save Error", e));
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.warn("Storage full!", e);
+        if (e.name === 'QuotaExceededError') {
+          showToast("Warning: Document too large to auto-save");
+        }
       }
     }
 
-    async function loadSettings() {
-      let data = null;
-      try {
-        if(window.idbKeyval) data = await idbKeyval.get(STORAGE_KEY);
-        // Automatic Migration from LocalStorage to IndexedDB
-        if (!data && localStorage.getItem(STORAGE_KEY)) {
-          data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          await idbKeyval.set(STORAGE_KEY, data);
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      if (data) {
-        if (data.theme !== undefined) themeSlider.value = data.theme;
-        if (data.ratio !== undefined) ratioSlider.value = data.ratio;
-        if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
-        if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
-        if (data.width !== undefined) widthSlider.value = data.width;
-        if (data.blur !== undefined) blurSlider.value = data.blur;
-        if (data.text !== undefined) { inputText.innerHTML = data.text; currentRawHTML = data.text.trim(); }
-        if (data.viewState !== undefined) currentViewMode = data.viewState;
+    function loadSettings() {
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.theme !== undefined) themeSlider.value = data.theme;
+          if (data.ratio !== undefined) ratioSlider.value = data.ratio;
+          if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
+          if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
+          if (data.width !== undefined) widthSlider.value = data.width;
+          if (data.blur !== undefined) blurSlider.value = data.blur;
+          if (data.text !== undefined) { inputText.innerHTML = data.text; currentRawHTML = data.text.trim(); }
+          if (data.viewState !== undefined) currentViewMode = data.viewState;
+        } catch (e) {}
       }
 
       const size = `${fontSizeSlider.value}px`;
