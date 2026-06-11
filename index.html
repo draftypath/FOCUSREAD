@@ -14,10 +14,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Readability via script tag to avoid Chrome file:// strict CORS blocking -->
   <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
   <script>
-    // Disable the worker so PDFs can be parsed locally via file:// without CORS security errors
+    // Disable the worker so PDFs can be parsed locally without errors
     pdfjsLib.GlobalWorkerOptions.disableWorker = true;
   </script>
   
@@ -115,12 +114,23 @@
       color: var(--text-dim) !important;
     }
     
-    /* Strip media and their wrappers to prevent massive blank gaps */
-    .rich-text-area img,
+    /* --- CINEMATIC IMAGES --- */
+    /* Allows article images to render beautifully like Medium.com */
+    .rich-text-area img, 
     .rich-text-area figure,
-    .rich-text-area picture,
+    .rich-text-area picture {
+      max-width: 100% !important;
+      height: auto !important;
+      border-radius: 12px !important;
+      margin: 2.5rem auto !important;
+      display: block !important;
+    }
+
+    /* Still ruthlessly hide iframes, SVGs, and audio/video for ultimate focus */
     .rich-text-area iframe,
-    .rich-text-area svg { 
+    .rich-text-area svg,
+    .rich-text-area video,
+    .rich-text-area audio { 
       display: none !important; 
     }
     
@@ -428,7 +438,7 @@
           style="font-size: 14px; color: var(--text-main); line-height: 1.9; text-align: left;"
         ></div>
 
-        <!-- DISCRETE WORD COUNT -->
+        <!-- DISCRETE WORD COUNT / READ TIME -->
         <div id="word-count" class="absolute -bottom-6 right-6 text-[9px] uppercase tracking-widest transition-opacity duration-300 pointer-events-none" style="color: var(--text-main); opacity: 0;">
           0 Words
         </div>
@@ -461,14 +471,28 @@
     <!-- === READ MODE VIEW === -->
     <div id="read-view" class="view-transition view-hidden flex w-full flex-col items-center pt-32 pb-8 px-4 sm:px-5" style="max-width: 672px; display: none;">
       
-      <button 
-        id="btn-back"
-        class="group mb-16 flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold"
-        style="color: var(--text-main);"
-      >
-        <span class="transition-transform group-hover:-translate-x-1">←</span>
-        <span>Edit Text</span>
-      </button>
+      <!-- TOP NAV BAR (Back + TTS Listen Button) -->
+      <div class="flex w-full items-center justify-between mb-16">
+        <button 
+          id="btn-back"
+          class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold"
+          style="color: var(--text-main);"
+        >
+          <span class="transition-transform group-hover:-translate-x-1">←</span>
+          <span>Edit Text</span>
+        </button>
+
+        <!-- TEXT TO SPEECH BUTTON -->
+        <button 
+          id="btn-listen"
+          class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold"
+          style="color: var(--text-main);"
+        >
+          <svg id="icon-listen-play" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-110"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg id="icon-listen-stop" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden transition-transform group-hover:scale-110"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <span id="text-listen">Listen</span>
+        </button>
+      </div>
 
       <!-- Scroll down indicator -->
       <div id="scroll-indicator" class="mb-24 grid content-start justify-items-center gap-6 text-center">
@@ -741,6 +765,57 @@
 
     let settingsOpen = false;
 
+    // --- TEXT TO SPEECH (TTS) LOGIC ---
+    const btnListen = document.getElementById('btn-listen');
+    const iconPlay = document.getElementById('icon-listen-play');
+    const iconStop = document.getElementById('icon-listen-stop');
+    const textListen = document.getElementById('text-listen');
+    let synth = window.speechSynthesis;
+    let isPlaying = false;
+
+    function stopTTS() {
+      if (synth) synth.cancel();
+      isPlaying = false;
+      iconPlay.classList.remove('hidden');
+      iconStop.classList.add('hidden');
+      textListen.innerText = 'Listen';
+    }
+
+    btnListen.addEventListener('click', () => {
+      if (isPlaying) {
+        stopTTS();
+      } else {
+        // Strip out the text to read (ignores HTML tags so it sounds natural)
+        const textToRead = outputText.innerText;
+        if (!textToRead) return;
+        
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utterance.onend = stopTTS;
+        utterance.onerror = stopTTS;
+        
+        synth.speak(utterance);
+        isPlaying = true;
+        
+        iconPlay.classList.add('hidden');
+        iconStop.classList.remove('hidden');
+        textListen.innerText = 'Stop';
+      }
+    });
+
+    // --- POWER-USER KEYBOARD SHORTCUTS ---
+    document.addEventListener('keydown', (e) => {
+      // Cmd/Ctrl + Enter to Convert instantly
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+         if (currentViewMode === 'edit' && inputText.innerText.trim()) {
+            btnConvert.click();
+         }
+      }
+      // Escape to go back
+      if (e.key === 'Escape' && currentViewMode === 'read') {
+         btnBack.click();
+      }
+    });
+
     // --- SCROLL-SYNCED BLUR VIGNETTE, PROGRESS BAR & SCROLL TO TOP ---
     function updateScrollEffects() {
       if (currentViewMode !== 'read') {
@@ -895,7 +970,7 @@
       return tempDiv.innerHTML;
     }
 
-    // --- WORD COUNT UPDATER ---
+    // --- WORD COUNT & READ TIME UPDATER ---
     function updateWordCount() {
       if(!wordCountEl) return;
       const text = inputText.innerText.trim();
@@ -905,7 +980,9 @@
         wordCountEl.style.opacity = '0';
       } else {
         wordCountEl.style.opacity = '0.3';
-        wordCountEl.innerText = `${wordCount.toLocaleString()} Words`;
+        // Average adult reads 238 words per minute
+        const readTime = Math.ceil(wordCount / 238);
+        wordCountEl.innerText = `${wordCount.toLocaleString()} Words • ${readTime} Min Read`;
       }
     }
 
@@ -1238,9 +1315,18 @@
         // The /2/ tells the Wayback Machine to instantly redirect to the latest available snapshot
         const archiveUrl = encodeURIComponent(`https://web.archive.org/web/2/${url}`);
 
-        // PROXY CHAIN: Live Proxies -> Archive Bypasses
+        // PROXY CHAIN: Jina AI -> Live Proxies -> Archive Bypasses
         const proxies = [
+          { name: "LLM Route (Jina AI)", fn: async () => {
+              const res = await fetch(`https://r.jina.ai/${url}`, {
+                headers: { 'Accept': 'text/html' }
+              });
+              if (!res.ok) throw new Error("Failed");
+              return await res.text();
+            }
+          },
           { name: "Live Route A", fn: async () => {
+              setStatus("Fetching Route 2...");
               const res = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
               if (!res.ok) throw new Error("Failed");
               const data = await res.json();
@@ -1249,7 +1335,6 @@
             }
           },
           { name: "Live Route B", fn: async () => {
-              setStatus("Fetching Route 2...");
               const res = await fetch(`https://corsproxy.io/?${encodedUrl}`);
               if (!res.ok) throw new Error("Failed");
               return await res.text();
@@ -1294,6 +1379,13 @@
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
+
+        // Inject base tag to magically fix broken relative image URLs
+        try {
+          const base = doc.createElement('base');
+          base.href = new URL(url).origin;
+          doc.head.appendChild(base);
+        } catch(e) {}
 
         const reader = new Readability(doc);
         const article = reader.parse();
@@ -1352,6 +1444,7 @@
     });
 
     btnBack.addEventListener('click', () => {
+      stopTTS();
       switchView('edit', false);
     });
 
