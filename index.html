@@ -119,7 +119,23 @@
       color: var(--text-dim) !important;
     }
     
-    .rich-text-area img { display: none !important; }
+    /* Strip media and their wrappers to prevent massive blank gaps */
+    .rich-text-area img,
+    .rich-text-area figure,
+    .rich-text-area picture,
+    .rich-text-area iframe,
+    .rich-text-area svg { 
+      display: none !important; 
+    }
+    
+    /* Soften Wikipedia infoboxes / tables so they don't break the layout */
+    .rich-text-area table { 
+      margin-bottom: 1.5em !important; 
+      opacity: 0.85;
+    }
+    .rich-text-area td, .rich-text-area th { 
+      padding-right: 1em !important; 
+    }
 
     /* Beautiful Spacing specifically for Extracted Web Articles */
     .rich-text-area p { margin-bottom: 1.25em !important; }
