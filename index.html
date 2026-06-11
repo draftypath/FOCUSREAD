@@ -5,16 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bionic Focus Reader</title>
   
-  <!-- Gives your site a lightning bolt tab icon and clears the console error -->
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <meta name="theme-color" content="#161618">
   
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Document Parsing Libraries -->
+  <!-- Document Parsing & Data Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.90/epub.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
   <script>
     // Disable the worker so PDFs can be parsed locally without errors
     pdfjsLib.GlobalWorkerOptions.disableWorker = true;
@@ -24,28 +28,20 @@
   
   <style>
     :root {
-      /* Theme Slider Value (0 = Light, 100 = Dark) */
       --theme-mix: 0%;
 
-      /* Dynamic Colors calculated by the browser in real-time */
       --bg-color: color-mix(in srgb, #161618 var(--theme-mix), #f5f4f3);
       --text-main: color-mix(in srgb, #ffffff var(--theme-mix), #000000);
-      
-      /* Forces the non-bionic text to be the exact same solid color as the bold text */
       --text-dim: var(--text-main);
       
-      /* UI Element Dynamic Colors */
       --panel-bg: color-mix(in srgb, rgba(30, 30, 32, 0.75) var(--theme-mix), rgba(255, 255, 255, 0.7));
       --panel-border: color-mix(in srgb, rgba(255, 255, 255, 0.05) var(--theme-mix), rgba(255, 255, 255, 0.5));
       
-      /* Subtly blends the text main color into the background for a highly integrated look */
       --input-bg: color-mix(in srgb, var(--text-main) 2%, var(--bg-color));
       
-      /* Dynamic, fully transparent button background */
       --btn-bg: color-mix(in srgb, rgba(255, 255, 255, 0.05) var(--theme-mix), rgba(0, 0, 0, 0.12));
       --btn-text: var(--text-main);
 
-      /* Dynamic bevel/canal shadow formulas with softened highlights */
       --well-shadow-dark: color-mix(in srgb, rgba(0,0,0,0.3) var(--theme-mix), rgba(0,0,0,0.12));
       --well-shadow-light: color-mix(in srgb, rgba(255,255,255,0.03) var(--theme-mix), rgba(255,255,255,0.5));
     }
@@ -57,7 +53,6 @@
       transition: background-color 0.1s, color 0.1s;
     }
 
-    /* Hide scrollbar for a cleaner look */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -92,7 +87,6 @@
       will-change: max-width, font-size, line-height;
     }
 
-    /* Strip Google Docs fonts/colors, but PRESERVE layout and margins */
     .rich-text-area * {
       background-color: transparent !important;
       font-family: inherit !important;
@@ -114,8 +108,6 @@
       color: var(--text-dim) !important;
     }
     
-    /* --- CINEMATIC IMAGES --- */
-    /* Allows article images to render beautifully like Medium.com */
     .rich-text-area img, 
     .rich-text-area figure,
     .rich-text-area picture {
@@ -126,7 +118,6 @@
       display: block !important;
     }
 
-    /* Still ruthlessly hide iframes, SVGs, and audio/video for ultimate focus */
     .rich-text-area iframe,
     .rich-text-area svg,
     .rich-text-area video,
@@ -134,7 +125,6 @@
       display: none !important; 
     }
     
-    /* Soften Wikipedia infoboxes / tables so they don't break the layout */
     .rich-text-area table { 
       margin-bottom: 1.5em !important; 
       opacity: 0.85;
@@ -143,7 +133,6 @@
       padding-right: 1em !important; 
     }
 
-    /* Beautiful Spacing specifically for Extracted Web Articles */
     .rich-text-area p { margin-bottom: 1.25em !important; }
     .rich-text-area h1, .rich-text-area h2, .rich-text-area h3 {
       font-weight: 700 !important;
@@ -168,12 +157,9 @@
       border: 2px solid var(--panel-border); 
       border-radius: 20px; 
       padding: 1.5rem 1.5rem 4.5rem 1.5rem; 
-      
-      /* Dynamic beveled well shadows for high-tactility depth */
       box-shadow: 
         inset 5px 5px 12px var(--well-shadow-dark), 
         inset -5px -5px 12px var(--well-shadow-light);
-      
       transition: border-color 0.4s ease, box-shadow 0.4s ease, background-color 0.4s ease;
       outline: none;
     }
@@ -196,43 +182,28 @@
     #input-text.drag-over {
       border-color: var(--text-main) !important;
       background-color: color-mix(in srgb, var(--input-bg) 80%, var(--text-main)) !important;
-      
       box-shadow: 
         inset 7px 7px 16px var(--well-shadow-dark), 
         inset -7px -7px 16px var(--well-shadow-light) !important;
     }
 
-    /* Mobile adjustments for floating inner buttons */
     @media (max-width: 640px) {
-      #btn-upload {
-        bottom: 1rem !important;
-        right: 1rem !important;
-        padding: 0.5rem 1rem !important;
-      }
-      #word-count {
-        bottom: -1.25rem !important;
-        right: 1rem !important;
-      }
+      #btn-upload { bottom: 1rem !important; right: 1rem !important; padding: 0.5rem 1rem !important; }
+      #word-count { bottom: -1.25rem !important; right: 1rem !important; }
     }
 
-    /* Custom Minimalist Sliders */
-    input[type=range] {
-      -webkit-appearance: none; width: 100%; background: transparent;
-    }
+    /* Custom Sliders */
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
     input[type=range]:focus { outline: none; }
     input[type=range]::-webkit-slider-runnable-track {
       width: 100%; height: 4px; cursor: pointer;
       background: color-mix(in srgb, var(--text-main) 15%, transparent);
       border-radius: 4px; transition: background 0.2s;
     }
-    input[type=range]:hover::-webkit-slider-runnable-track {
-      background: color-mix(in srgb, var(--text-main) 25%, transparent);
-    }
+    input[type=range]:hover::-webkit-slider-runnable-track { background: color-mix(in srgb, var(--text-main) 25%, transparent); }
     input[type=range]::-webkit-slider-thumb {
-      height: 14px; width: 14px; border-radius: 50%;
-      background: var(--text-main);
-      cursor: pointer; -webkit-appearance: none; margin-top: -5px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      height: 14px; width: 14px; border-radius: 50%; background: var(--text-main);
+      cursor: pointer; -webkit-appearance: none; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
       transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.2, 1);
     }
     input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
@@ -241,101 +212,36 @@
 </head>
 <body class="relative h-screen w-screen overflow-hidden">
 
-  <!-- ==========================================
-       SVG GOOEY FILTER
-       ========================================== -->
   <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true" focusable="false">
     <defs>
       <filter id="gooey-threshold">
         <feColorMatrix in="SourceGraphic" type="matrix" values="
-          1 0 0 0 0
-          0 1 0 0 0
-          0 0 1 0 0
-          0 0 0 255 -140" />
+          1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 255 -140" />
       </filter>
     </defs>
   </svg>
 
-  <!-- ==========================================
-       INTRO GOOEY SCREEN
-       ========================================== -->
-  <div 
-    id="loading-screen" 
-    class="fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-1000 ease-in-out" 
-    style="background-color: var(--bg-color);"
-  >
+  <div id="loading-screen" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-1000 ease-in-out" style="background-color: var(--bg-color);">
     <div class="relative flex items-center justify-center w-full h-[150px]" style="filter: url(#gooey-threshold);">
       <span id="gooey-text-1" class="absolute inline-block text-center font-medium text-4xl md:text-6xl text-[var(--text-main)] select-none"></span>
       <span id="gooey-text-2" class="absolute inline-block text-center font-medium text-4xl md:text-6xl text-[var(--text-main)] select-none"></span>
     </div>
   </div>
 
-  <!-- ==========================================
-       TOAST NOTIFICATION SYSTEM
-       ========================================== -->
-  <div 
-    id="toast" 
-    class="fixed bottom-24 sm:bottom-12 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-6 py-3 rounded-full shadow-2xl transition-opacity duration-[240ms] opacity-0 pointer-events-none" 
-    style="background-color: color-mix(in srgb, var(--text-main) 50%, transparent); color: var(--bg-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"
-  >
-    <svg id="toast-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+  <div id="toast" class="fixed bottom-24 sm:bottom-12 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-6 py-3 rounded-full shadow-2xl transition-opacity duration-[240ms] opacity-0 pointer-events-none" style="background-color: color-mix(in srgb, var(--text-main) 50%, transparent); color: var(--bg-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
     <span id="toast-message" class="text-[11px] uppercase tracking-widest font-bold whitespace-nowrap">Message</span>
   </div>
 
-  <!-- ==========================================
-       READING PAGE BLURS (Optimized for 0% GPU load)
-       ========================================== -->
-  <div 
-    id="blur-top"
-    class="pointer-events-none fixed left-0 top-0 z-40 w-full select-none opacity-0"
-    style="
-      height: 30vh;
-      background: linear-gradient(to bottom, var(--bg-color) 10%, transparent);
-      transition: opacity 0.3s ease;
-      transform: translateZ(0);
-    "
-  ></div>
+  <!-- Blurs (Optimized for 0% GPU load) -->
+  <div id="blur-top" class="pointer-events-none fixed left-0 top-0 z-40 w-full select-none opacity-0" style="height: 30vh; background: linear-gradient(to bottom, var(--bg-color) 10%, transparent); transition: opacity 0.3s ease; transform: translateZ(0);"></div>
+  <div id="blur-bottom" class="pointer-events-none fixed left-0 bottom-0 z-40 w-full select-none opacity-0" style="height: 30vh; background: linear-gradient(to top, var(--bg-color) 10%, transparent); transition: opacity 0.3s ease; transform: translateZ(0);"></div>
+  <div id="blur-edit-bottom" class="pointer-events-none fixed left-0 bottom-0 z-[5] w-full select-none transition-opacity duration-700 opacity-100" style="height: 15vh; background: linear-gradient(to top, var(--bg-color) 10%, transparent); transform: translateZ(0);"></div>
 
-  <div 
-    id="blur-bottom"
-    class="pointer-events-none fixed left-0 bottom-0 z-40 w-full select-none opacity-0"
-    style="
-      height: 30vh;
-      background: linear-gradient(to top, var(--bg-color) 10%, transparent);
-      transition: opacity 0.3s ease;
-      transform: translateZ(0);
-    "
-  ></div>
-
-  <!-- ==========================================
-       EDIT MODE FIXED BOTTOM BLUR (Optimized for 0% GPU load)
-       ========================================== -->
-  <div 
-    id="blur-edit-bottom"
-    class="pointer-events-none fixed left-0 bottom-0 z-[5] w-full select-none transition-opacity duration-700 opacity-100"
-    style="
-      height: 15vh;
-      background: linear-gradient(to top, var(--bg-color) 10%, transparent);
-      transform: translateZ(0);
-    "
-  ></div>
-
-  <!-- ==========================================
-       VERTICAL PROGRESS BAR
-       ========================================== -->
-  <div 
-    id="progress-container" 
-    class="fixed right-2 sm:right-3 top-1/2 -translate-y-1/2 h-[40vh] w-[2px] z-50 pointer-events-none transition-opacity duration-300 opacity-0"
-    style="background-color: color-mix(in srgb, var(--text-main) 3%, transparent); border-radius: 2px;"
-  >
-    <div 
-      id="progress-bar" 
-      class="w-full rounded-full" 
-      style="background-color: var(--text-main); opacity: 0.15; height: 0%;"
-    ></div>
+  <div id="progress-container" class="fixed right-2 sm:right-3 top-1/2 -translate-y-1/2 h-[40vh] w-[2px] z-50 pointer-events-none transition-opacity duration-300 opacity-0" style="background-color: color-mix(in srgb, var(--text-main) 3%, transparent); border-radius: 2px;">
+    <div id="progress-bar" class="w-full rounded-full" style="background-color: var(--text-main); opacity: 0.15; height: 0%;"></div>
   </div>
 
-  <!-- === TOP LEFT BRANDING === -->
   <div id="top-left-branding" class="fixed top-6 left-6 z-50 pointer-events-none transition-opacity duration-300">
     <h1 class="text-lg sm:text-xl tracking-tight">
       <span class="bionic-bold">Bi</span><span class="bionic-dim">onic</span>
@@ -343,23 +249,11 @@
     </h1>
   </div>
 
-  <!-- === SCROLL TO TOP BUTTON === -->
-  <button 
-    id="btn-scroll-top"
-    class="group fixed bottom-5 left-5 sm:bottom-6 sm:left-6 z-50 flex h-12 w-12 items-center justify-center rounded-full transition-opacity duration-700 opacity-0 pointer-events-none hover:scale-105 active:scale-95"
-    style="background-color: color-mix(in srgb, var(--text-main) 3%, transparent); border: 1px solid color-mix(in srgb, var(--text-main) 8%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-main)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-opacity duration-300 group-hover:opacity-100">
-      <path d="m18 15-6-6-6 6"/>
-    </svg>
+  <button id="btn-scroll-top" class="group fixed bottom-5 left-5 sm:bottom-6 sm:left-6 z-50 flex h-12 w-12 items-center justify-center rounded-full transition-opacity duration-700 opacity-0 pointer-events-none hover:scale-105 active:scale-95" style="background-color: color-mix(in srgb, var(--text-main) 3%, transparent); border: 1px solid color-mix(in srgb, var(--text-main) 8%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-main)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-opacity duration-300 group-hover:opacity-100"><path d="m18 15-6-6-6 6"/></svg>
   </button>
 
-  <!-- === ASCII ART WATERMARK 1 (EDIT MODE) === -->
-  <div 
-    id="ascii-art-edit-left" 
-    class="fixed bottom-4 sm:bottom-6 left-4 sm:left-6 z-0 pointer-events-none transition-opacity duration-700 font-mono select-none whitespace-pre origin-bottom-left scale-[0.6] sm:scale-75 opacity-[0.15]" 
-    style="color: var(--text-main); font-size: 20px; line-height: 1.15;"
-  >
+  <div id="ascii-art-edit-left" class="fixed bottom-4 sm:bottom-6 left-4 sm:left-6 z-0 pointer-events-none transition-opacity duration-700 font-mono select-none whitespace-pre origin-bottom-left scale-[0.6] sm:scale-75 opacity-[0.15]" style="color: var(--text-main); font-size: 20px; line-height: 1.15;">
 ⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⡶⢶⣶⣶⣦⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⣀⠴⠛⠛⠉⠄⠀⠀⠀⠀⠀⠀⠀⠈⠑⠒⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⣤⡊⠁⣀⣤⣄⣤⣤⣤⣀⣤⣤⣤⣀⣤⣠⣶⣠⣀⠉⠢⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -382,12 +276,7 @@
 ⠀⠀⠀⠀⠀⠈⠉⠫⡁⠀⢻⠿⢷⣤⣿⣿⣶⣿⣿⣿⣯⣿⣻⣿⣿⣶⣠⣳⠀⠀⠐⣿⡿⠄⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠘⠲⠞⠒⠛⠛⠛⠛⠛⠋⠻⠛⠓⠛⠛⠛⠛⠟⠛⠛⠓⠚⠓⠛⠂⠀⠀⠀⠀⠀⠀⠀</div>
 
-  <!-- === ASCII ART WATERMARK 2 (EDIT MODE) === -->
-  <div 
-    id="ascii-art-edit-right" 
-    class="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-0 pointer-events-none transition-opacity duration-700 font-mono select-none whitespace-pre origin-bottom-right scale-[0.6] sm:scale-75 opacity-[0.15] translate-x-24 sm:translate-x-48" 
-    style="color: var(--text-main); font-size: 20px; line-height: 1.15;"
-  >
+  <div id="ascii-art-edit-right" class="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-0 pointer-events-none transition-opacity duration-700 font-mono select-none whitespace-pre origin-bottom-right scale-[0.6] sm:scale-75 opacity-[0.15] translate-x-24 sm:translate-x-48" style="color: var(--text-main); font-size: 20px; line-height: 1.15;">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -416,106 +305,69 @@
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡼⠌⠐⠀⠁⠀⠀⠀⠀⠀⠁⠀⠀⠀⠠⢰⡁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⢀⠄⠀⠀⠀⠀⠀⠀⡁⠀⠀⠀⠀⠘⡅⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀</div>
 
-  <!-- Main Scrollable Container -->
   <div id="main-scroll" class="no-scrollbar flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden relative z-10">
     
-    <!-- === EDIT MODE VIEW === -->
+    <!-- === EDIT MODE === -->
     <div id="edit-view" class="view-transition view-active flex w-full max-w-2xl flex-col items-center justify-center min-h-full py-12 px-4 sm:px-5 space-y-4">
       
       <div class="text-center relative z-10 mb-2">
         <p class="text-[10px] sm:text-xs uppercase tracking-widest opacity-60" style="color: var(--text-main)">
-          Paste URL, Text, or Upload Document
+          Paste URL, YouTube Link, Text, or Document
         </p>
       </div>
 
-      <!-- TEXT AREA WRAPPER -->
       <div class="relative w-full z-10">
         <div 
           id="input-text" 
           contenteditable="true"
-          data-placeholder="Paste a link, text, or drop a file (.pdf, .docx, .pages)..."
+          data-placeholder="Paste a link, text, or drop a file (.pdf, .epub, .docx)..."
           class="rich-text-area no-scrollbar w-full h-[45vh] max-h-[45vh] overflow-y-auto relative z-10"
           style="font-size: 14px; color: var(--text-main); line-height: 1.9; text-align: left;"
         ></div>
 
-        <!-- DISCRETE WORD COUNT / READ TIME -->
+        <!-- STRICT WORD COUNT (REMOVED READING TIME) -->
         <div id="word-count" class="absolute -bottom-6 right-6 text-[9px] uppercase tracking-widest transition-opacity duration-300 pointer-events-none" style="color: var(--text-main); opacity: 0;">
           0 Words
         </div>
 
-        <!-- HIDDEN FILE INPUT -->
-        <input type="file" id="file-input" accept=".pdf,.docx,.pages,.txt,.html,.md" class="hidden" />
+        <input type="file" id="file-input" accept=".pdf,.docx,.pages,.txt,.html,.md,.epub" class="hidden" />
 
-        <!-- DISCRETE FLOATING UPLOAD BUTTON -->
-        <button 
-          id="btn-upload"
-          class="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-[11px] uppercase tracking-widest rounded-full transition-all opacity-40 hover:opacity-100 hover:scale-105 active:scale-95"
-          style="background-color: var(--panel-bg); color: var(--text-main); border: 1px solid var(--panel-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"
-        >
+        <button id="btn-upload" class="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-[11px] uppercase tracking-widest rounded-full transition-all opacity-40 hover:opacity-100 hover:scale-105 active:scale-95" style="background-color: var(--panel-bg); color: var(--text-main); border: 1px solid var(--panel-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
           <svg id="upload-icon" class="w-3.5 h-3.5 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
           <span id="upload-text" class="font-bold">Upload</span>
         </button>
       </div>
 
-      <!-- PRIMARY CTA BUTTON -->
-      <button 
-        id="btn-convert"
-        class="rounded-full px-10 py-3.5 text-sm tracking-wide shadow-md transition-all duration-[400ms] ease-out active:scale-95 font-bold relative z-10 mt-4 border opacity-0 pointer-events-none"
-        style="background-color: var(--btn-bg); color: var(--btn-text); border-color: var(--panel-border);"
-      >
+      <button id="btn-convert" class="rounded-full px-10 py-3.5 text-sm tracking-wide shadow-md transition-all duration-[400ms] ease-out active:scale-95 font-bold relative z-10 mt-4 border opacity-0 pointer-events-none" style="background-color: var(--btn-bg); color: var(--btn-text); border-color: var(--panel-border);">
         Read Text
       </button>
 
     </div>
 
-    <!-- === READ MODE VIEW === -->
+    <!-- === READ MODE === -->
     <div id="read-view" class="view-transition view-hidden flex w-full flex-col items-center pt-32 pb-8 px-4 sm:px-5" style="max-width: 672px; display: none;">
       
-      <!-- TOP NAV BAR (Back + TTS Listen Button) -->
+      <!-- TOP NAV BAR (Back Button Only - TTS Removed) -->
       <div class="flex w-full items-center justify-between mb-16">
-        <button 
-          id="btn-back"
-          class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold"
-          style="color: var(--text-main);"
-        >
+        <button id="btn-back" class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold" style="color: var(--text-main);">
           <span class="transition-transform group-hover:-translate-x-1">←</span>
           <span>Edit Text</span>
         </button>
-
-        <!-- TEXT TO SPEECH BUTTON -->
-        <button 
-          id="btn-listen"
-          class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold"
-          style="color: var(--text-main);"
-        >
-          <svg id="icon-listen-play" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-110"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          <svg id="icon-listen-stop" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden transition-transform group-hover:scale-110"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-          <span id="text-listen">Listen</span>
-        </button>
       </div>
 
-      <!-- Scroll down indicator -->
       <div id="scroll-indicator" class="mb-24 grid content-start justify-items-center gap-6 text-center">
         <span class="relative max-w-[12ch] text-[10px] uppercase tracking-widest leading-tight opacity-60 after:absolute after:left-1/2 after:top-full after:mt-2 after:h-16 after:w-px after:content-['']" style="color: var(--text-main);">
           Scroll down to focus
         </span>
       </div>
 
-      <!-- Bionic Text Output Area -->
-      <div 
-        id="output-text" 
-        class="rich-text-area w-full tracking-wide transition-all"
-        style="font-size: 18px; line-height: 1.9; text-align: left;"
-      >
-        <!-- Converted text injects here -->
+      <div id="output-text" class="rich-text-area w-full tracking-wide transition-all" style="font-size: 18px; line-height: 1.9; text-align: left;">
       </div>
 
     </div>
 
     <!-- === ASCII ART WATERMARKS (READ MODE) === -->
     <div id="ascii-read-container" class="relative w-full max-w-[1200px] h-0 mt-24 mb-0 hidden opacity-0 transition-opacity duration-700 pointer-events-none select-none z-0">
-      
-      <!-- Left Art -->
       <div class="absolute bottom-0 left-0 sm:left-6 font-mono whitespace-pre opacity-[0.15] text-[12px] sm:text-[15px] leading-[1.15]" style="color: var(--text-main); z-index: -1;">
 ⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⡶⢶⣶⣶⣦⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⣀⠴⠛⠛⠉⠄⠀⠀⠀⠀⠀⠀⠀⠈⠑⠒⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -538,8 +390,6 @@
 ⠀⠀⠀⠀⠀⢠⣴⡶⣀⠀⠀⢸⡽⠂⢸⣿⣽⣻⣿⣤⣾⣿⣿⣿⣿⣄⡀⡸⠀⠀⠀⢀⣀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠈⠉⠫⡁⠀⢻⠿⢷⣤⣿⣿⣶⣿⣿⣿⣯⣿⣻⣿⣿⣶⣠⣳⠀⠀⠐⣿⡿⠄⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠘⠲⠞⠒⠛⠛⠛⠛⠛⠋⠻⠛⠓⠛⠛⠛⠛⠟⠛⠛⠓⠚⠓⠛⠂⠀⠀⠀⠀⠀⠀⠀</div>
-
-      <!-- Right Art -->
       <div class="absolute bottom-0 right-0 sm:right-6 translate-x-24 sm:translate-x-48 font-mono whitespace-pre opacity-[0.15] text-[12px] sm:text-[15px] leading-[1.15]" style="color: var(--text-main); z-index: -1;">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -574,93 +424,91 @@
 
   <!-- === FLOATING SETTINGS MENU === -->
   <div id="settings-container" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-4 transition-opacity duration-300 opacity-0 pointer-events-none">
-    
     <div id="settings-panel" class="w-[calc(100vw-2rem)] sm:w-72 origin-bottom-right scale-95 opacity-0 pointer-events-none rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-xl border transition-all duration-300" style="background-color: var(--panel-bg); border-color: var(--panel-border);">
       <div class="space-y-6">
-        
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>Light</span>
-            <span>Dark</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>Light</span><span>Dark</span></div>
           <input type="range" id="theme-slider" min="0" max="100" value="0">
         </div>
-
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>Subtle Bold</span>
-            <span>Heavy Bold</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>Subtle Bold</span><span>Heavy Bold</span></div>
           <input type="range" id="ratio-slider" min="10" max="100" value="45">
         </div>
-
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>Small Font</span>
-            <span>Large Font</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>Small Font</span><span>Large Font</span></div>
           <input type="range" id="font-size-slider" min="14" max="32" step="2" value="18">
         </div>
-
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>Y-axis Narrow</span>
-            <span>Y-axis Wide</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>Y-axis Narrow</span><span>Y-axis Wide</span></div>
           <input type="range" id="line-height-slider" min="1.4" max="2.6" step="0.05" value="1.9">
         </div>
-
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>X-axis Narrow</span>
-            <span>X-axis Wide</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>X-axis Narrow</span><span>X-axis Wide</span></div>
           <input type="range" id="width-slider" min="400" max="1000" value="672">
         </div>
-
         <div class="space-y-2">
-          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);">
-            <span>No Blur</span>
-            <span>Focus Blur</span>
-          </div>
+          <div class="flex justify-between text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-main);"><span>No Blur</span><span>Focus Blur</span></div>
           <input type="range" id="blur-slider" min="0" max="48" step="1" value="30">
         </div>
-
       </div>
     </div>
-
-    <!-- Toggle Button -->
     <button id="settings-toggle" class="flex h-12 w-12 items-center justify-center rounded-full shadow-sm backdrop-blur-md transition-all hover:scale-105 active:scale-95 border" style="background-color: var(--input-bg); border-color: var(--panel-border); color: var(--text-main);">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/>
-        <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
-        <path d="M12 2v2"/>
-        <path d="M12 20v2"/>
-        <path d="m4.93 4.93 1.41 1.41"/>
-        <path d="m17.66 17.66 1.41 1.41"/>
-        <path d="M2 12h2"/>
-        <path d="M20 12h2"/>
-        <path d="m6.34 17.66-1.41 1.41"/>
-        <path d="m19.07 4.93-1.41 1.41"/>
+        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
       </svg>
     </button>
   </div>
 
   <script>
-    // --- INTRO SCREEN GOOEY LOGIC ---
-    const STORAGE_KEY = 'bionic_focus_settings_v8';
+    // --- PWA SERVICE WORKER REGISTRATION ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Registration failed: ', err));
+      });
+    }
+
+    // --- INITIALIZATION ---
+    const STORAGE_KEY = 'bionic_focus_settings_v9';
     let currentRawHTML = ""; 
     let currentBionicRatio = 0.45;
     let currentViewMode = 'edit';
     
-    // Load Theme Synchronously to prevent Flash of Unstyled Theme
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.theme !== undefined) document.documentElement.style.setProperty('--theme-mix', `${data.theme}%`);
-      } catch (e) {}
-    }
+    // Create the background Web Worker from a Blob (No extra files needed)
+    const bionicWorkerCode = `
+      self.onmessage = function(e) {
+        const { html, ratio } = e.data;
+        const tokenRegex = /(<[^>]+>)|([^<]+)/g;
+        let result = '';
+        let match;
+        
+        while ((match = tokenRegex.exec(html)) !== null) {
+          if (match[1]) {
+            result += match[1]; // Keep HTML tags exactly as they are
+          } else if (match[2]) {
+            let text = match[2];
+            if (!text.trim()) {
+              result += text;
+              continue;
+            }
+            const chunks = text.split(/([\\s\\n]+)/);
+            result += chunks.map(chunk => {
+              if (/^[\\s\\n]+$/.test(chunk)) return chunk;
+              return chunk.replace(/[a-zA-Z0-9À-ÿ]+(?:['’][a-zA-Z0-9À-ÿ]+)*/g, (word) => {
+                if (/^[0-9]+$/.test(word)) return '<span class="bionic-bold">' + word + '</span>';
+                const len = word.length;
+                let boldLen = Math.ceil(len * ratio);
+                if (boldLen < 1) boldLen = 1;
+                if (boldLen > len) boldLen = len;
+                return '<span class="bionic-bold">' + word.slice(0, boldLen) + '</span><span class="bionic-dim">' + word.slice(boldLen) + '</span>';
+              });
+            }).join('');
+          }
+        }
+        self.postMessage(result);
+      }
+    `;
+    const workerBlob = new Blob([bionicWorkerCode], { type: 'application/javascript' });
+    const bionicWorker = new Worker(URL.createObjectURL(workerBlob));
 
     // --- Cinematic Intro Sequence ---
     window.addEventListener('DOMContentLoaded', () => {
@@ -668,10 +516,7 @@
       const t1 = document.getElementById('gooey-text-1');
       const t2 = document.getElementById('gooey-text-2');
 
-      const texts = [
-        '<span class="font-bold">Bi</span>onic',
-        '<span class="font-bold">Fo</span>cus'
-      ];
+      const texts = ['<span class="font-bold">Bi</span>onic', '<span class="font-bold">Fo</span>cus'];
 
       const setMorph = (fraction) => {
         t2.style.filter = `blur(${Math.min(8 / fraction - 8, 100)}px)`;
@@ -682,45 +527,31 @@
       };
 
       const start = performance.now();
-      
       const animate = (now) => {
         if (!gooeyActive) return;
         const elapsed = (now - start) / 1000;
-
         if (elapsed < 0.3) {
-          t1.innerHTML = texts[0];
-          t2.innerHTML = texts[1];
-          setMorph(0); 
+          t1.innerHTML = texts[0]; t2.innerHTML = texts[1]; setMorph(0); 
         } else if (elapsed < 1.0) {
           setMorph((elapsed - 0.3) / 0.8); 
         } else {
-          setMorph(1); 
-          return; 
+          setMorph(1); return; 
         }
         requestAnimationFrame(animate);
       };
-
       requestAnimationFrame(animate);
 
-      setTimeout(() => {
-        document.getElementById('loading-screen').style.opacity = '0';
-      }, 2000);
-
-      setTimeout(() => {
-        gooeyActive = false;
-        document.getElementById('loading-screen').style.display = 'none';
-      }, 3000);
+      setTimeout(() => document.getElementById('loading-screen').style.opacity = '0', 2000);
+      setTimeout(() => { gooeyActive = false; document.getElementById('loading-screen').style.display = 'none'; }, 3000);
     });
 
-    // --- MAIN LOGIC ---
+    // --- DOM Elements ---
     const editView = document.getElementById('edit-view');
     const readView = document.getElementById('read-view');
     const inputText = document.getElementById('input-text');
     const outputText = document.getElementById('output-text');
     const btnConvert = document.getElementById('btn-convert');
     const btnUpload = document.getElementById('btn-upload');
-    const uploadIcon = document.getElementById('upload-icon');
-    const uploadText = document.getElementById('upload-text');
     const fileInput = document.getElementById('file-input');
     const btnBack = document.getElementById('btn-back');
     const scrollIndicator = document.getElementById('scroll-indicator');
@@ -733,7 +564,6 @@
     const btnScrollTop = document.getElementById('btn-scroll-top');
     const blurEditBottom = document.getElementById('blur-edit-bottom');
 
-    // Toast System
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     let toastTimeout;
@@ -742,7 +572,6 @@
       toastMessage.innerText = message;
       toast.classList.remove('opacity-0');
       toast.classList.add('opacity-100');
-      
       clearTimeout(toastTimeout);
       toastTimeout = setTimeout(() => {
         toast.classList.remove('opacity-100');
@@ -762,83 +591,35 @@
     
     const blurTop = document.getElementById('blur-top');
     const blurBottom = document.getElementById('blur-bottom');
-
     let settingsOpen = false;
-
-    // --- TEXT TO SPEECH (TTS) LOGIC ---
-    const btnListen = document.getElementById('btn-listen');
-    const iconPlay = document.getElementById('icon-listen-play');
-    const iconStop = document.getElementById('icon-listen-stop');
-    const textListen = document.getElementById('text-listen');
-    let synth = window.speechSynthesis;
-    let isPlaying = false;
-
-    function stopTTS() {
-      if (synth) synth.cancel();
-      isPlaying = false;
-      iconPlay.classList.remove('hidden');
-      iconStop.classList.add('hidden');
-      textListen.innerText = 'Listen';
-    }
-
-    btnListen.addEventListener('click', () => {
-      if (isPlaying) {
-        stopTTS();
-      } else {
-        // Strip out the text to read (ignores HTML tags so it sounds natural)
-        const textToRead = outputText.innerText;
-        if (!textToRead) return;
-        
-        const utterance = new SpeechSynthesisUtterance(textToRead);
-        utterance.onend = stopTTS;
-        utterance.onerror = stopTTS;
-        
-        synth.speak(utterance);
-        isPlaying = true;
-        
-        iconPlay.classList.add('hidden');
-        iconStop.classList.remove('hidden');
-        textListen.innerText = 'Stop';
-      }
-    });
 
     // --- POWER-USER KEYBOARD SHORTCUTS ---
     document.addEventListener('keydown', (e) => {
-      // Cmd/Ctrl + Enter to Convert instantly
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-         if (currentViewMode === 'edit' && inputText.innerText.trim()) {
-            btnConvert.click();
-         }
+         if (currentViewMode === 'edit' && inputText.innerText.trim()) btnConvert.click();
       }
-      // Escape to go back
       if (e.key === 'Escape' && currentViewMode === 'read') {
          btnBack.click();
       }
     });
 
-    // --- SCROLL-SYNCED BLUR VIGNETTE, PROGRESS BAR & SCROLL TO TOP ---
+    // --- HIGH-PERFORMANCE SCROLL EFFECTS ---
     function updateScrollEffects() {
       if (currentViewMode !== 'read') {
         blurTop.style.opacity = '0';
         blurBottom.style.opacity = '0';
         progressContainer.style.opacity = '0';
-        
         btnScrollTop.classList.remove('opacity-100', 'pointer-events-auto');
         btnScrollTop.classList.add('opacity-0', 'pointer-events-none');
         return;
       }
-
       const scrollTop = mainScroll.scrollTop;
       const scrollHeight = mainScroll.scrollHeight;
       const clientHeight = mainScroll.clientHeight;
 
       let topOpacity = Math.min(scrollTop / 60, 1);
       let bottomOpacity = 1; 
-      
-      if (scrollHeight <= clientHeight) {
-        topOpacity = 0;
-        bottomOpacity = 0;
-      }
+      if (scrollHeight <= clientHeight) { topOpacity = 0; bottomOpacity = 0; }
 
       blurTop.style.opacity = topOpacity.toString();
       blurBottom.style.opacity = bottomOpacity.toString();
@@ -847,12 +628,7 @@
       if (scrollableDistance > 0) {
         const scrollPercentage = Math.max(0, Math.min(100, (scrollTop / scrollableDistance) * 100));
         progressBar.style.height = `${scrollPercentage}%`;
-
-        if (scrollTop > 10) {
-          progressContainer.style.opacity = '0.7';
-        } else {
-          progressContainer.style.opacity = '0';
-        }
+        progressContainer.style.opacity = scrollTop > 10 ? '0.7' : '0';
       } else {
         progressContainer.style.opacity = '0';
       }
@@ -866,7 +642,6 @@
       }
     }
 
-    // --- HIGH-PERFORMANCE SCROLL THROTTLING ---
     let isScrolling = false;
     mainScroll.addEventListener('scroll', () => {
       if (!isScrolling) {
@@ -878,128 +653,60 @@
       }
     }, { passive: true });
 
-    // --- CUSTOM SMOOTH SCROLL ---
     btnScrollTop.addEventListener('click', () => {
       const startPos = mainScroll.scrollTop;
       const duration = 700; 
       const startTime = performance.now();
-
-      function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
-      }
-
+      function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
       function animateScroll(currentTime) {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
         mainScroll.scrollTop = startPos * (1 - easeOutCubic(progress));
-
-        if (progress < 1) {
-          requestAnimationFrame(animateScroll);
-        }
+        if (progress < 1) requestAnimationFrame(animateScroll);
       }
-      
       requestAnimationFrame(animateScroll);
     });
 
     const styleTag = document.createElement('style');
     document.head.appendChild(styleTag);
-    function updateScrollIndicatorGradient() {
-      styleTag.innerHTML = `#scroll-indicator span::after { background: linear-gradient(to bottom, transparent, var(--text-main)); }`;
-    }
-    updateScrollIndicatorGradient();
+    styleTag.innerHTML = `#scroll-indicator span::after { background: linear-gradient(to bottom, transparent, var(--text-main)); }`;
 
-    // --- URL DETECTION HELPER ---
+    // --- URL HELPERS ---
     function isURL(str) {
       const trimmed = str.trim();
       if (trimmed.includes(' ') && !trimmed.startsWith('http')) return false;
-      try {
-        new URL(trimmed);
-        return /^https?:\/\//i.test(trimmed);
-      } catch (_) {
-        return false;
-      }
+      try { new URL(trimmed); return /^https?:\/\//i.test(trimmed); } catch (_) { return false; }
     }
+    const isYouTube = url => /(?:youtube\.com|youtu\.be)/.test(url);
 
-    // --- DOM Walker Algorithm (Upgraded Bionic Engine) ---
-    function applyBionicToHTML(htmlString, ratio) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = htmlString;
-
-      function walk(node) {
-        if (node.nodeType === 3) { 
-          const text = node.nodeValue;
-          if (!text.trim()) return;
-
-          const wrapper = document.createElement('span');
-          const chunks = text.split(/([\s\n]+)/);
-          
-          wrapper.innerHTML = chunks.map(chunk => {
-            if (/^[\s\n]+$/.test(chunk)) return chunk;
-
-            return chunk.replace(/[a-zA-Z0-9À-ÿ]+(?:['’][a-zA-Z0-9À-ÿ]+)*/g, (word) => {
-              if (/^[0-9]+$/.test(word)) {
-                  return `<span class="bionic-bold">${word}</span>`;
-              }
-
-              const len = word.length;
-              let boldLen = Math.ceil(len * ratio);
-
-              if (boldLen < 1) boldLen = 1;
-              if (boldLen > len) boldLen = len;
-
-              const boldPart = word.slice(0, boldLen);
-              const dimPart = word.slice(boldLen);
-
-              return `<span class="bionic-bold">${boldPart}</span><span class="bionic-dim">${dimPart}</span>`;
-            });
-          }).join('');
-
-          while (wrapper.firstChild) {
-            node.parentNode.insertBefore(wrapper.firstChild, node);
-          }
-          node.parentNode.removeChild(node);
-
-        } else if (node.nodeType === 1) { 
-          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE' || node.classList.contains('bionic-bold')) return;
-          Array.from(node.childNodes).forEach(walk);
-        }
-      }
-
-      walk(tempDiv);
-      return tempDiv.innerHTML;
-    }
-
-    // --- WORD COUNT & READ TIME UPDATER ---
+    // --- WORD COUNT UPDATER (Strictly words, no timer) ---
     function updateWordCount() {
       if(!wordCountEl) return;
       const text = inputText.innerText.trim();
       const wordCount = text ? text.split(/\s+/).length : 0;
-      
       if (wordCount === 0) {
         wordCountEl.style.opacity = '0';
       } else {
         wordCountEl.style.opacity = '0.3';
-        // Average adult reads 238 words per minute
-        const readTime = Math.ceil(wordCount / 238);
-        wordCountEl.innerText = `${wordCount.toLocaleString()} Words • ${readTime} Min Read`;
+        wordCountEl.innerText = `${wordCount.toLocaleString()} Words`;
       }
     }
 
-    // --- CONVERT BUTTON VISIBILITY & MORPHING CONTROLLER ---
+    // --- BUTTON MORPHING CONTROLLER ---
     let convertBtnTimeout;
     function updateConvertButtonVisibility(delayMs = 0) {
       clearTimeout(convertBtnTimeout);
-      
       const text = inputText.innerText.trim();
       const hasText = text.length > 0;
-      const isOnlyURL = isURL(text);
       
       const applyVisibility = () => {
         if (hasText) {
-          // If it's just a URL, morph the button to an Extractor
-          if (isOnlyURL) {
-            btnConvert.innerHTML = 'Extract Article ✨';
+          if (isURL(text)) {
+            if (isYouTube(text)) {
+              btnConvert.innerHTML = 'Extract Transcript 🎥';
+            } else {
+              btnConvert.innerHTML = 'Extract Article ✨';
+            }
             btnConvert.style.backgroundColor = 'var(--text-main)';
             btnConvert.style.color = 'var(--bg-color)';
           } else {
@@ -1007,7 +714,6 @@
             btnConvert.style.backgroundColor = 'var(--btn-bg)';
             btnConvert.style.color = 'var(--btn-text)';
           }
-          
           btnConvert.classList.remove('opacity-0', 'pointer-events-none');
           btnConvert.classList.add('opacity-100', 'pointer-events-auto');
         } else {
@@ -1016,49 +722,30 @@
         }
       };
 
-      if (delayMs > 0 && hasText) {
-        convertBtnTimeout = setTimeout(applyVisibility, delayMs);
-      } else {
-        applyVisibility();
-      }
+      if (delayMs > 0 && hasText) convertBtnTimeout = setTimeout(applyVisibility, delayMs);
+      else applyVisibility();
     }
 
-    inputText.addEventListener('paste', () => {
-      setTimeout(() => {
-        updateConvertButtonVisibility(); 
-      }, 50);
-    });
+    inputText.addEventListener('paste', () => setTimeout(updateConvertButtonVisibility, 50));
 
-    // --- FILE UPLOAD LOGIC ---
+    // --- FILE UPLOAD (PDF, DOCX, PAGES, EPUB) ---
     btnUpload.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFile);
 
-    inputText.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      inputText.classList.add('drag-over');
-    });
-    inputText.addEventListener('dragleave', () => {
-      inputText.classList.remove('drag-over');
-    });
+    inputText.addEventListener('dragover', (e) => { e.preventDefault(); inputText.classList.add('drag-over'); });
+    inputText.addEventListener('dragleave', () => { inputText.classList.remove('drag-over'); });
     inputText.addEventListener('drop', (e) => {
       e.preventDefault();
       inputText.classList.remove('drag-over');
-      if (e.dataTransfer.files.length) {
-        handleFile({ target: { files: e.dataTransfer.files } });
-      } else {
-        setTimeout(() => {
-          updateConvertButtonVisibility();
-        }, 50);
-      }
+      if (e.dataTransfer.files.length) handleFile({ target: { files: e.dataTransfer.files } });
+      else setTimeout(updateConvertButtonVisibility, 50);
     });
 
     function handleFile(e) {
       const file = e.target.files[0];
       if (!file) return;
 
-      const btnUpload = document.getElementById('btn-upload');
       const originalBtnHTML = btnUpload.innerHTML;
-
       btnUpload.innerHTML = `
         <svg class="w-3.5 h-3.5 animate-spin opacity-75" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1071,203 +758,137 @@
       
       const finalizeUpload = (success = true) => {
         if(success) showToast(`Loaded "${file.name}"`);
-        saveSettings();
-        updateWordCount();
-        updateConvertButtonVisibility(500); 
-        btnUpload.innerHTML = originalBtnHTML;
-        fileInput.value = '';
+        saveSettings(); updateWordCount(); updateConvertButtonVisibility(500); 
+        btnUpload.innerHTML = originalBtnHTML; fileInput.value = '';
       };
 
-      if (ext === 'txt' || ext === 'html' || ext === 'htm' || ext === 'md') {
+      if (['txt', 'html', 'htm', 'md'].includes(ext)) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          let text = ev.target.result;
-          if (ext === 'txt' || ext === 'md') inputText.innerText = text; 
-          else inputText.innerHTML = text; 
+          if (ext === 'txt' || ext === 'md') inputText.innerText = ev.target.result; 
+          else inputText.innerHTML = ev.target.result; 
           finalizeUpload();
         };
         reader.readAsText(file);
-      } 
-      else if (ext === 'docx') {
+      } else if (ext === 'docx') {
         const reader = new FileReader();
         reader.onload = (ev) => {
           mammoth.convertToHtml({arrayBuffer: ev.target.result})
-            .then((result) => {
-              inputText.innerHTML = result.value;
-              finalizeUpload();
-            })
-            .catch((err) => {
-              console.error(err);
-              showToast("Error reading DOCX file");
-              finalizeUpload(false);
-            });
+            .then(res => { inputText.innerHTML = res.value; finalizeUpload(); })
+            .catch(() => { showToast("Error reading DOCX"); finalizeUpload(false); });
         };
         reader.readAsArrayBuffer(file);
-      }
-      else if (ext === 'pages') {
+      } else if (ext === 'epub') {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const book = ePub(ev.target.result);
+            await book.ready;
+            let fullText = "";
+            for (const item of book.spine.items) {
+               let doc = await book.load(item.href);
+               if(typeof doc === 'string') doc = new DOMParser().parseFromString(doc, "application/xhtml+xml");
+               if (doc && doc.body) fullText += doc.body.innerHTML + "<br/>";
+            }
+            inputText.innerHTML = fullText;
+            finalizeUpload();
+          } catch(e) {
+            console.error(e);
+            showToast("Error reading EPUB");
+            finalizeUpload(false);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else if (ext === 'pages') {
         const reader = new FileReader();
         reader.onload = async (ev) => {
           try {
             const zip = await JSZip.loadAsync(ev.target.result);
             let xmlFile = zip.file("index.xml") || zip.file("Index/Document.xml");
             if (!xmlFile) throw new Error("No text found");
-            
             const xmlData = await xmlFile.async("string");
-            const withNewlines = xmlData.replace(/<\/([a-zA-Z0-9]+:)?p>/g, '\n');
-            const cleanText = withNewlines.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
-            
+            const cleanText = xmlData.replace(/<\/([a-zA-Z0-9]+:)?p>/g, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
             inputText.innerText = cleanText;
             finalizeUpload();
-          } catch (err) {
-            console.error(err);
-            showToast("Error reading Pages document");
-            finalizeUpload(false);
-          }
+          } catch (err) { showToast("Error reading Pages document"); finalizeUpload(false); }
         };
         reader.readAsArrayBuffer(file);
-      }
-      else if (ext === 'pdf') {
+      } else if (ext === 'pdf') {
         const reader = new FileReader();
         reader.onload = async (ev) => {
           try {
-            const typedarray = new Uint8Array(ev.target.result);
-            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            const pdf = await pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise;
             let fullText = "";
-            
             for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const content = await page.getTextContent();
-              let lastY = -1;
-              let pageText = "";
+              const content = await (await pdf.getPage(i)).getTextContent();
+              let lastY = -1; let pageText = "";
               for (const item of content.items) {
-                if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                  pageText += "\n";
-                }
-                pageText += item.str;
-                lastY = item.transform[5];
+                if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) pageText += "\n";
+                pageText += item.str; lastY = item.transform[5];
               }
               fullText += pageText + "\n\n";
             }
-            
-            fullText = fullText.replace(/([^\n])\n([^\n])/g, '$1 $2'); 
-            fullText = fullText.replace(/([a-zA-Z])- ([a-zA-Z])/g, '$1$2'); 
-            fullText = fullText.replace(/\n{3,}/g, '\n\n'); 
-            
-            inputText.innerText = fullText.trim();
+            inputText.innerText = fullText.replace(/([^\n])\n([^\n])/g, '$1 $2').replace(/([a-zA-Z])- ([a-zA-Z])/g, '$1$2').replace(/\n{3,}/g, '\n\n').trim();
             finalizeUpload();
-          } catch (err) {
-            console.error(err);
-            showToast("Error reading PDF");
-            finalizeUpload(false);
-          }
+          } catch (err) { showToast("Error reading PDF"); finalizeUpload(false); }
         };
         reader.readAsArrayBuffer(file);
-      }
-      else {
-        showToast("Unsupported file type");
-        finalizeUpload(false);
-      }
+      } else { showToast("Unsupported file type"); finalizeUpload(false); }
     }
 
-    // --- UI Interactions & View Switching ---
-
+    // --- VIEW SWITCHING ---
     inputText.addEventListener('dblclick', (e) => {
       e.preventDefault(); 
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(inputText);
-      selection.removeAllRanges();
-      selection.addRange(range);
+      const selection = window.getSelection(); const range = document.createRange();
+      range.selectNodeContents(inputText); selection.removeAllRanges(); selection.addRange(range);
     });
 
     function switchView(mode, instant = false) {
       currentViewMode = mode;
-      
       const asciiEditLeft = document.getElementById('ascii-art-edit-left');
       const asciiEditRight = document.getElementById('ascii-art-edit-right');
       const asciiReadContainer = document.getElementById('ascii-read-container');
       
       if (mode === 'read') {
-        readView.style.display = 'flex'; 
-        void readView.offsetWidth;
-
-        editView.classList.remove('view-active');
-        editView.classList.add('view-hidden');
-        readView.classList.remove('view-hidden');
-        readView.classList.add('view-active');
+        readView.style.display = 'flex'; void readView.offsetWidth;
+        editView.classList.remove('view-active'); editView.classList.add('view-hidden');
+        readView.classList.remove('view-hidden'); readView.classList.add('view-active');
 
         settingsContainer.classList.remove('opacity-0', 'pointer-events-none');
         settingsContainer.classList.add('opacity-100', 'pointer-events-auto');
-        
         topLeftBranding.style.opacity = '0';
         
-        if (asciiEditLeft) {
-          asciiEditLeft.classList.remove('opacity-[0.15]');
-          asciiEditLeft.classList.add('opacity-0');
-        }
-        if (asciiEditRight) {
-          asciiEditRight.classList.remove('opacity-[0.15]');
-          asciiEditRight.classList.add('opacity-0');
-        }
-        if (blurEditBottom) {
-          blurEditBottom.classList.remove('opacity-100');
-          blurEditBottom.classList.add('opacity-0');
-        }
-        
+        if (asciiEditLeft) { asciiEditLeft.classList.remove('opacity-[0.15]'); asciiEditLeft.classList.add('opacity-0'); }
+        if (asciiEditRight) { asciiEditRight.classList.remove('opacity-[0.15]'); asciiEditRight.classList.add('opacity-0'); }
+        if (blurEditBottom) { blurEditBottom.classList.remove('opacity-100'); blurEditBottom.classList.add('opacity-0'); }
         if (asciiReadContainer) {
           asciiReadContainer.classList.remove('hidden');
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              asciiReadContainer.classList.remove('opacity-0');
-              asciiReadContainer.classList.add('opacity-100');
-            });
-          });
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+              asciiReadContainer.classList.remove('opacity-0'); asciiReadContainer.classList.add('opacity-100');
+          }));
         }
 
         mainScroll.scrollTo({ top: 0, behavior: instant ? 'auto' : 'smooth' });
-        
         requestAnimationFrame(() => updateScrollEffects());
 
-        if (instant) {
-          editView.style.display = 'none';
-        } else {
-          setTimeout(() => { if (currentViewMode === 'read') editView.style.display = 'none'; }, 400);
-        }
-
+        if (instant) editView.style.display = 'none';
+        else setTimeout(() => { if (currentViewMode === 'read') editView.style.display = 'none'; }, 400);
       } else {
-        editView.style.display = 'flex'; 
-        void editView.offsetWidth;
-
-        readView.classList.remove('view-active');
-        readView.classList.add('view-hidden');
-        editView.classList.remove('view-hidden');
-        editView.classList.add('view-active');
+        editView.style.display = 'flex'; void editView.offsetWidth;
+        readView.classList.remove('view-active'); readView.classList.add('view-hidden');
+        editView.classList.remove('view-hidden'); editView.classList.add('view-active');
 
         settingsContainer.classList.add('opacity-0', 'pointer-events-none');
         settingsContainer.classList.remove('opacity-100', 'pointer-events-auto');
-        
         topLeftBranding.style.opacity = '1';
         
         if (asciiReadContainer) {
-          asciiReadContainer.classList.remove('opacity-100');
-          asciiReadContainer.classList.add('opacity-0');
-          setTimeout(() => {
-            if (currentViewMode === 'edit') asciiReadContainer.classList.add('hidden');
-          }, 700);
+          asciiReadContainer.classList.remove('opacity-100'); asciiReadContainer.classList.add('opacity-0');
+          setTimeout(() => { if (currentViewMode === 'edit') asciiReadContainer.classList.add('hidden'); }, 700);
         }
-
-        if (asciiEditLeft) {
-          asciiEditLeft.classList.remove('opacity-0');
-          asciiEditLeft.classList.add('opacity-[0.15]');
-        }
-        if (asciiEditRight) {
-          asciiEditRight.classList.remove('opacity-0');
-          asciiEditRight.classList.add('opacity-[0.15]');
-        }
-        if (blurEditBottom) {
-          blurEditBottom.classList.remove('opacity-0');
-          blurEditBottom.classList.add('opacity-100');
-        }
+        if (asciiEditLeft) { asciiEditLeft.classList.remove('opacity-0'); asciiEditLeft.classList.add('opacity-[0.15]'); }
+        if (asciiEditRight) { asciiEditRight.classList.remove('opacity-0'); asciiEditRight.classList.add('opacity-[0.15]'); }
+        if (blurEditBottom) { blurEditBottom.classList.remove('opacity-0'); blurEditBottom.classList.add('opacity-100'); }
         
         if (settingsOpen) {
           settingsOpen = false;
@@ -1276,183 +897,140 @@
           settingsToggle.style.backgroundColor = 'var(--input-bg)';
         }
 
-        blurTop.style.opacity = '0';
-        blurBottom.style.opacity = '0';
-        progressContainer.style.opacity = '0';
-
+        blurTop.style.opacity = '0'; blurBottom.style.opacity = '0'; progressContainer.style.opacity = '0';
         mainScroll.scrollTo({ top: 0, behavior: instant ? 'auto' : 'smooth' });
 
-        if (instant) {
-          readView.style.display = 'none';
-        } else {
-          setTimeout(() => { if (currentViewMode === 'edit') readView.style.display = 'none'; }, 400);
-        }
+        if (instant) readView.style.display = 'none';
+        else setTimeout(() => { if (currentViewMode === 'edit') readView.style.display = 'none'; }, 400);
       }
       saveSettings();
     }
 
-    // --- ARTICLE EXTRACTOR ENGINE (Anti-Bot & Wayback Bypass) ---
+    // --- SEPARATED ARTICLE & YOUTUBE EXTRACTORS ---
     async function extractArticleFromURL(url) {
       const originalHTML = inputText.innerHTML;
-      
       const setStatus = (msg) => {
         btnConvert.innerHTML = `
           <svg class="inline-block w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="align-middle">${msg}</span>
+          </svg><span class="align-middle">${msg}</span>
         `;
       };
 
-      setStatus("Fetching Route 1...");
+      setStatus(isYouTube(url) ? "Scraping Video..." : "Bypassing Security...");
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
       try {
+        // --- 1. YOUTUBE TRANSCRIPT ENGINE ---
+        if (isYouTube(url)) {
+          let mdText = "";
+          try {
+            // Attempt 1: Direct Jina AI Call
+            const res = await fetch(`https://r.jina.ai/${url}`);
+            if (!res.ok) throw new Error("Jina Direct Failed");
+            mdText = await res.text();
+          } catch (e) {
+            // Attempt 2: Route Jina AI through a CORS proxy to bypass browser blocks
+            console.warn("Direct YouTube scrape failed, using proxy fallback...");
+            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://r.jina.ai/${url}`)}`);
+            if (!res.ok) throw new Error("Proxy Jina Failed");
+            mdText = await res.text();
+          }
+
+          if (!mdText || mdText.includes("Title: YouTube")) {
+             throw new Error("Could not extract transcript. Video might be restricted.");
+          }
+
+          // Format raw markdown into readable HTML
+          mdText = mdText.replace(/!\[([^\]]*)\]\([^)]+\)/g, ''); // Strip image markdown
+          const paragraphs = mdText.split('\n\n').map(p => `<p>${p}</p>`).join('');
+          
+          inputText.innerHTML = `<h1>YouTube Transcript</h1>${paragraphs}`;
+          showToast("Transcript Extracted 🎥");
+          updateWordCount(); saveSettings(); return;
+        }
+
+        // --- 2. STANDARD ARTICLE ENGINE ---
         let htmlText = "";
         const encodedUrl = encodeURIComponent(url);
-        
-        // The /2/ tells the Wayback Machine to instantly redirect to the latest available snapshot
         const archiveUrl = encodeURIComponent(`https://web.archive.org/web/2/${url}`);
 
-        // PROXY CHAIN: Jina AI -> Live Proxies -> Archive Bypasses
+        // Highly resilient chain of HTML Proxies
         const proxies = [
-          { name: "LLM Route (Jina AI)", fn: async () => {
-              const res = await fetch(`https://r.jina.ai/${url}`, {
-                headers: { 'Accept': 'text/html' }
-              });
-              if (!res.ok) throw new Error("Failed");
-              return await res.text();
-            }
-          },
-          { name: "Live Route A", fn: async () => {
-              setStatus("Fetching Route 2...");
-              const res = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
-              if (!res.ok) throw new Error("Failed");
-              const data = await res.json();
-              if (!data.contents) throw new Error("No contents");
-              return data.contents;
-            }
-          },
-          { name: "Live Route B", fn: async () => {
-              const res = await fetch(`https://corsproxy.io/?${encodedUrl}`);
-              if (!res.ok) throw new Error("Failed");
-              return await res.text();
-            }
-          },
-          { name: "Archive Route A", fn: async () => {
-              setStatus("Bypassing Firewall..."); // Tells the user we are using the Wayback trick
-              const res = await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`);
-              if (!res.ok) throw new Error("Failed");
-              const data = await res.json();
-              if (!data.contents) throw new Error("No contents");
-              return data.contents;
-            }
-          },
-          { name: "Archive Route B", fn: async () => {
-              const res = await fetch(`https://corsproxy.io/?${archiveUrl}`);
-              if (!res.ok) throw new Error("Failed");
-              return await res.text();
-            }
-          }
+          { name: "Live A (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
+          { name: "Live B (AllOrigins)", fn: async () => { setStatus("Trying Route 2..."); return (await (await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`)).json()).contents; } },
+          { name: "Archive A (CorsProxy)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://corsproxy.io/?${archiveUrl}`)).text(); } },
+          { name: "Archive B (AllOrigins)", fn: async () => return (await (await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`)).json()).contents; }
         ];
 
-        // Execute sequentially until one succeeds
         for (const proxy of proxies) {
           try {
             console.log(`[Proxy Engine] Attempting ${proxy.name}...`);
             htmlText = await proxy.fn();
-            
-            // Validate we actually got HTML back, not a firewall JSON error
-            if (htmlText && htmlText.toLowerCase().includes('<html')) {
-              console.log(`[Proxy Engine] ${proxy.name} Succeeded!`);
-              break; 
-            }
-          } catch (e) {
-            console.warn(`[Proxy Engine] ${proxy.name} blocked by site WAF.`);
-          }
+            if (htmlText && htmlText.toLowerCase().includes('<html')) break; 
+          } catch (e) { }
         }
 
-        if (!htmlText || !htmlText.toLowerCase().includes('<html')) {
-          throw new Error("All extraction routes blocked by Enterprise Security.");
-        }
+        if (!htmlText || !htmlText.toLowerCase().includes('<html')) throw new Error("All extraction routes blocked.");
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, 'text/html');
+        const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+        try { const base = doc.createElement('base'); base.href = new URL(url).origin; doc.head.appendChild(base); } catch(e) {}
 
-        // Inject base tag to magically fix broken relative image URLs
-        try {
-          const base = doc.createElement('base');
-          base.href = new URL(url).origin;
-          doc.head.appendChild(base);
-        } catch(e) {}
+        const article = new Readability(doc).parse();
+        if (!article || !article.textContent.trim()) throw new Error("Could not parse article format.");
 
-        const reader = new Readability(doc);
-        const article = reader.parse();
-
-        if (!article || !article.textContent.trim()) {
-           throw new Error("Could not parse article format.");
-        }
-
-        // Clean up Wikipedia citations (Removes [1], [53], etc. for distraction-free reading)
-        const cleanContent = article.content.replace(/\[\d+\]/g, '');
-
-        // Inject the perfectly stripped, semantic HTML into the text box
+        const cleanContent = article.content.replace(/\[\d+\]/g, ''); // Removes Wikipedia [1] tags
         inputText.innerHTML = `<h1>${article.title}</h1>${cleanContent}`;
         
         showToast("Article Extracted ✨");
-        updateWordCount();
-        saveSettings();
+        updateWordCount(); saveSettings();
 
       } catch (error) {
-        console.error("Extraction error:", error);
-        // Honest fallback message for the user
         showToast("Site highly encrypted. Please copy/paste text manually.");
-        inputText.innerHTML = originalHTML; // Revert text area safely
+        inputText.innerHTML = originalHTML; 
       } finally {
         btnConvert.classList.remove('pointer-events-none', 'opacity-80');
-        updateConvertButtonVisibility(); // Re-evaluates box to switch back to "Read Text"
+        updateConvertButtonVisibility();
       }
     }
 
-    // --- MAIN CTA BUTTON LOGIC ---
+    // --- MAIN CTA (WEB WORKER INTEGRATION) ---
     btnConvert.addEventListener('click', async () => {
       const text = inputText.innerText.trim();
-      
-      // Intercept click to trigger extraction if a URL is pasted
-      if (isURL(text)) {
-        await extractArticleFromURL(text);
-        return; 
-      }
+      if (isURL(text)) return await extractArticleFromURL(text);
 
-      // Existing Bionic Conversion Logic
       currentRawHTML = inputText.innerHTML.trim();
-      
-      if (!inputText.innerText.trim()) {
-        inputText.focus();
-        return;
-      }
+      if (!currentRawHTML) { inputText.focus(); return; }
 
-      if (inputText.innerText.length < 300) {
-        scrollIndicator.style.display = 'none';
-      } else {
-        scrollIndicator.style.display = 'grid';
-      }
+      if (inputText.innerText.length < 300) scrollIndicator.style.display = 'none';
+      else scrollIndicator.style.display = 'grid';
 
-      outputText.innerHTML = applyBionicToHTML(currentRawHTML, currentBionicRatio);
-      switchView('read', false);
+      // Switch Button to Processing State (No UI Freeze!)
+      btnConvert.innerHTML = `
+        <svg class="inline-block w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>Processing...
+      `;
+      btnConvert.classList.add('pointer-events-none');
+
+      bionicWorker.onmessage = (e) => {
+        outputText.innerHTML = e.data;
+        switchView('read', false);
+        btnConvert.classList.remove('pointer-events-none');
+        updateConvertButtonVisibility();
+      };
+
+      // Send heavy computation to the background thread
+      bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
     });
 
-    btnBack.addEventListener('click', () => {
-      stopTTS();
-      switchView('edit', false);
-    });
+    btnBack.addEventListener('click', () => switchView('edit', false));
 
-    // --- Settings Menu Logic ---
+    // --- SETTINGS MENU LOGIC ---
     settingsToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      settingsOpen = !settingsOpen;
-      
+      e.stopPropagation(); settingsOpen = !settingsOpen;
       if (settingsOpen) {
         settingsPanel.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
         settingsPanel.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
@@ -1472,66 +1050,61 @@
         settingsToggle.style.backgroundColor = 'var(--input-bg)';
       }
     });
-
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    // --- LOCAL STORAGE & BATCHED SLIDER OPTIMIZATIONS ---
-    function saveSettings() {
-      const data = {
-        theme: themeSlider.value,
-        ratio: ratioSlider.value,
-        fontSize: fontSizeSlider.value,
-        lineHeight: lineHeightSlider.value,
-        width: widthSlider.value,
-        blur: blurSlider.value,
-        text: inputText.innerHTML, 
-        viewState: currentViewMode
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // --- INDEXEDDB (500MB) LOAD & SAVE ---
+    async function saveSettings() {
+      // Fire & forget async save
+      if(window.idbKeyval) {
+        idbKeyval.set(STORAGE_KEY, {
+          theme: themeSlider.value, ratio: ratioSlider.value, fontSize: fontSizeSlider.value,
+          lineHeight: lineHeightSlider.value, width: widthSlider.value, blur: blurSlider.value,
+          text: inputText.innerHTML, viewState: currentViewMode
+        }).catch(e => console.error("IDB Save Error", e));
+      }
     }
 
-    function loadSettings() {
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.theme !== undefined) themeSlider.value = data.theme;
-          if (data.ratio !== undefined) ratioSlider.value = data.ratio;
-          if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
-          if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
-          if (data.width !== undefined) widthSlider.value = data.width;
-          if (data.blur !== undefined) blurSlider.value = data.blur;
-          if (data.text !== undefined) {
-            inputText.innerHTML = data.text;
-            currentRawHTML = data.text.trim();
-          }
-          if (data.viewState !== undefined) {
-            currentViewMode = data.viewState;
-          }
-        } catch (e) {}
+    async function loadSettings() {
+      let data = null;
+      try {
+        if(window.idbKeyval) data = await idbKeyval.get(STORAGE_KEY);
+        // Automatic Migration from LocalStorage to IndexedDB
+        if (!data && localStorage.getItem(STORAGE_KEY)) {
+          data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          await idbKeyval.set(STORAGE_KEY, data);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      if (data) {
+        if (data.theme !== undefined) themeSlider.value = data.theme;
+        if (data.ratio !== undefined) ratioSlider.value = data.ratio;
+        if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
+        if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
+        if (data.width !== undefined) widthSlider.value = data.width;
+        if (data.blur !== undefined) blurSlider.value = data.blur;
+        if (data.text !== undefined) { inputText.innerHTML = data.text; currentRawHTML = data.text.trim(); }
+        if (data.viewState !== undefined) currentViewMode = data.viewState;
       }
 
       const size = `${fontSizeSlider.value}px`;
-      const inputSize = `${Math.max(12, fontSizeSlider.value - 4)}px`;
-      outputText.style.fontSize = size;
-      inputText.style.fontSize = inputSize;
-      outputText.style.lineHeight = lineHeightSlider.value;
-      inputText.style.lineHeight = lineHeightSlider.value;
+      outputText.style.fontSize = size; inputText.style.fontSize = `${Math.max(12, fontSizeSlider.value - 4)}px`;
+      outputText.style.lineHeight = lineHeightSlider.value; inputText.style.lineHeight = lineHeightSlider.value;
       readView.style.maxWidth = `${widthSlider.value}px`;
-      
-      const blurHeight = `${blurSlider.value}vh`;
-      blurTop.style.height = blurHeight;
-      blurBottom.style.height = blurHeight;
+      blurTop.style.height = `${blurSlider.value}vh`; blurBottom.style.height = `${blurSlider.value}vh`;
       
       currentBionicRatio = ratioSlider.value / 100;
-      
-      updateWordCount();
-      updateConvertButtonVisibility();
+      updateWordCount(); updateConvertButtonVisibility();
 
       if (currentViewMode === 'read' && currentRawHTML) {
-        outputText.innerHTML = applyBionicToHTML(currentRawHTML, currentBionicRatio);
-        if (inputText.innerText.length < 300) scrollIndicator.style.display = 'none';
-        else scrollIndicator.style.display = 'grid';
-        switchView('read', true); 
+        // Run worker on startup if in read mode
+        bionicWorker.onmessage = (e) => {
+          outputText.innerHTML = e.data;
+          if (inputText.innerText.length < 300) scrollIndicator.style.display = 'none';
+          else scrollIndicator.style.display = 'grid';
+          switchView('read', true); 
+        };
+        bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
       } else {
         switchView('edit', true);
       }
@@ -1539,95 +1112,57 @@
 
     loadSettings();
 
-    inputText.addEventListener('input', () => { 
-      saveSettings(); 
-      updateWordCount();
-      updateConvertButtonVisibility();
-    });
+    inputText.addEventListener('input', () => { saveSettings(); updateWordCount(); updateConvertButtonVisibility(); });
 
-    let pendingCssUpdates = {};
-    let cssFrameRequested = false;
-
+    let pendingCssUpdates = {}; let cssFrameRequested = false;
     function applyCssUpdates() {
-      if (pendingCssUpdates.theme !== undefined) {
-        document.documentElement.style.setProperty('--theme-mix', `${pendingCssUpdates.theme}%`);
-      }
+      if (pendingCssUpdates.theme !== undefined) document.documentElement.style.setProperty('--theme-mix', `${pendingCssUpdates.theme}%`);
       if (pendingCssUpdates.fontSize !== undefined) {
-        const size = `${pendingCssUpdates.fontSize}px`;
-        const inputSize = `${Math.max(12, pendingCssUpdates.fontSize - 4)}px`;
-        outputText.style.fontSize = size;
-        inputText.style.fontSize = inputSize;
+        outputText.style.fontSize = `${pendingCssUpdates.fontSize}px`;
+        inputText.style.fontSize = `${Math.max(12, pendingCssUpdates.fontSize - 4)}px`;
       }
-      if (pendingCssUpdates.lineHeight !== undefined) {
-        outputText.style.lineHeight = pendingCssUpdates.lineHeight;
-        inputText.style.lineHeight = pendingCssUpdates.lineHeight;
-      }
-      if (pendingCssUpdates.width !== undefined) {
-        readView.style.maxWidth = `${pendingCssUpdates.width}px`;
-      }
-      if (pendingCssUpdates.blur !== undefined) {
-        const blurHeight = `${pendingCssUpdates.blur}vh`;
-        blurTop.style.height = blurHeight;
-        blurBottom.style.height = blurHeight;
-      }
-      saveSettings();
-      pendingCssUpdates = {};
-      cssFrameRequested = false;
+      if (pendingCssUpdates.lineHeight !== undefined) { outputText.style.lineHeight = pendingCssUpdates.lineHeight; inputText.style.lineHeight = pendingCssUpdates.lineHeight; }
+      if (pendingCssUpdates.width !== undefined) readView.style.maxWidth = `${pendingCssUpdates.width}px`;
+      if (pendingCssUpdates.blur !== undefined) { blurTop.style.height = `${pendingCssUpdates.blur}vh`; blurBottom.style.height = `${pendingCssUpdates.blur}vh`; }
+      saveSettings(); pendingCssUpdates = {}; cssFrameRequested = false;
     }
-
     function scheduleCssUpdate(key, value) {
       pendingCssUpdates[key] = value;
-      if (!cssFrameRequested) {
-        cssFrameRequested = true;
-        requestAnimationFrame(applyCssUpdates);
-      }
+      if (!cssFrameRequested) { cssFrameRequested = true; requestAnimationFrame(applyCssUpdates); }
     }
 
     themeSlider.addEventListener('input', (e) => scheduleCssUpdate('theme', e.target.value));
     fontSizeSlider.addEventListener('input', (e) => scheduleCssUpdate('fontSize', e.target.value));
     lineHeightSlider.addEventListener('input', (e) => scheduleCssUpdate('lineHeight', e.target.value));
-    widthSlider.addEventListener('input', (e) => {
-      scheduleCssUpdate('width', e.target.value);
-      requestAnimationFrame(() => updateScrollEffects()); 
-    });
+    widthSlider.addEventListener('input', (e) => { scheduleCssUpdate('width', e.target.value); requestAnimationFrame(updateScrollEffects); });
     blurSlider.addEventListener('input', (e) => scheduleCssUpdate('blur', e.target.value));
 
-    let lastRatioUpdate = 0;
-    let ratioUpdateQueued = false;
-
+    let lastRatioUpdate = 0; let ratioUpdateQueued = false;
     ratioSlider.addEventListener('input', (e) => {
       currentBionicRatio = e.target.value / 100;
+      const updateText = () => {
+        if (currentRawHTML) {
+          bionicWorker.onmessage = (ev) => { outputText.innerHTML = ev.data; };
+          bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
+        }
+      };
+
       const now = performance.now();
       if (now - lastRatioUpdate > 60) {
-        lastRatioUpdate = now;
-        requestAnimationFrame(() => {
-          if (currentRawHTML) outputText.innerHTML = applyBionicToHTML(currentRawHTML, currentBionicRatio);
-        });
+        lastRatioUpdate = now; updateText();
       } else if (!ratioUpdateQueued) {
         ratioUpdateQueued = true;
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            if (currentRawHTML) outputText.innerHTML = applyBionicToHTML(currentRawHTML, currentBionicRatio);
-            lastRatioUpdate = performance.now();
-            ratioUpdateQueued = false;
-          });
-        }, 60);
+        setTimeout(() => { updateText(); lastRatioUpdate = performance.now(); ratioUpdateQueued = false; }, 60);
       }
       saveSettings(); 
     });
 
-    const layoutSliders = [widthSlider, fontSizeSlider, lineHeightSlider];
-    layoutSliders.forEach(slider => {
+    [widthSlider, fontSizeSlider, lineHeightSlider].forEach(slider => {
       const startSliding = () => outputText.classList.add('sliding-active');
       const stopSliding = () => outputText.classList.remove('sliding-active');
-      
-      slider.addEventListener('mousedown', startSliding);
-      slider.addEventListener('touchstart', startSliding, {passive: true});
-      slider.addEventListener('change', stopSliding);
-      slider.addEventListener('mouseup', stopSliding);
-      slider.addEventListener('touchend', stopSliding);
+      slider.addEventListener('mousedown', startSliding); slider.addEventListener('touchstart', startSliding, {passive: true});
+      slider.addEventListener('change', stopSliding); slider.addEventListener('mouseup', stopSliding); slider.addEventListener('touchend', stopSliding);
     });
-
   </script>
 </body>
 </html>
