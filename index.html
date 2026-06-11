@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bionic Focus Reader</title>
-  <!-- ADD THIS LINE: Gives your site a lightning bolt tab icon and clears the console error -->
+  
+  <!-- Gives your site a lightning bolt tab icon and clears the console error -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,7 +14,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Added Readability back via script tag to avoid Chrome file:// strict CORS blocking -->
+  <!-- Readability via script tag to avoid Chrome file:// strict CORS blocking -->
   <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
   <script>
     // Disable the worker so PDFs can be parsed locally via file:// without CORS security errors
@@ -41,7 +42,7 @@
       /* Subtly blends the text main color into the background for a highly integrated look */
       --input-bg: color-mix(in srgb, var(--text-main) 2%, var(--bg-color));
       
-      /* Dynamic, fully transparent button background (Darker 12% black in light mode, softer 5% white in dark mode) */
+      /* Dynamic, fully transparent button background */
       --btn-bg: color-mix(in srgb, rgba(255, 255, 255, 0.05) var(--theme-mix), rgba(0, 0, 0, 0.12));
       --btn-text: var(--text-main);
 
@@ -79,11 +80,6 @@
       transform: translateY(0); 
       position: relative; 
       visibility: visible;
-    }
-
-    /* Blur overlay specific transition */
-    .blur-overlay {
-      transition: height 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
     }
 
     /* --- PERFORMANCE CLASSES --- */
@@ -277,47 +273,40 @@
   </div>
 
   <!-- ==========================================
-       READING PAGE BLURS
+       READING PAGE BLURS (Optimized for 0% GPU load)
        ========================================== -->
   <div 
     id="blur-top"
-    class="blur-overlay pointer-events-none fixed left-0 top-0 z-40 w-full select-none opacity-0"
+    class="pointer-events-none fixed left-0 top-0 z-40 w-full select-none opacity-0"
     style="
       height: 30vh;
-      background: linear-gradient(to top, transparent, var(--bg-color));
-      mask-image: linear-gradient(to bottom, var(--bg-color) 50%, transparent);
-      -webkit-mask-image: linear-gradient(to bottom, var(--bg-color) 50%, transparent);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: linear-gradient(to bottom, var(--bg-color) 10%, transparent);
+      transition: opacity 0.3s ease;
+      transform: translateZ(0);
     "
   ></div>
 
   <div 
     id="blur-bottom"
-    class="blur-overlay pointer-events-none fixed left-0 bottom-0 z-40 w-full select-none opacity-0"
+    class="pointer-events-none fixed left-0 bottom-0 z-40 w-full select-none opacity-0"
     style="
       height: 30vh;
-      background: linear-gradient(to bottom, transparent, var(--bg-color));
-      mask-image: linear-gradient(to top, var(--bg-color) 50%, transparent);
-      -webkit-mask-image: linear-gradient(to top, var(--bg-color) 50%, transparent);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: linear-gradient(to top, var(--bg-color) 10%, transparent);
+      transition: opacity 0.3s ease;
+      transform: translateZ(0);
     "
   ></div>
 
   <!-- ==========================================
-       EDIT MODE FIXED BOTTOM BLUR
+       EDIT MODE FIXED BOTTOM BLUR (Optimized for 0% GPU load)
        ========================================== -->
   <div 
     id="blur-edit-bottom"
-    class="blur-overlay pointer-events-none fixed left-0 bottom-0 z-[5] w-full select-none transition-opacity duration-700 opacity-100"
+    class="pointer-events-none fixed left-0 bottom-0 z-[5] w-full select-none transition-opacity duration-700 opacity-100"
     style="
       height: 15vh;
-      background: linear-gradient(to bottom, transparent, var(--bg-color));
-      mask-image: linear-gradient(to top, var(--bg-color) 50%, transparent);
-      -webkit-mask-image: linear-gradient(to top, var(--bg-color) 50%, transparent);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: linear-gradient(to top, var(--bg-color) 10%, transparent);
+      transform: translateZ(0);
     "
   ></div>
 
@@ -802,7 +791,17 @@
       }
     }
 
-    mainScroll.addEventListener('scroll', updateScrollEffects);
+    // --- HIGH-PERFORMANCE SCROLL THROTTLING ---
+    let isScrolling = false;
+    mainScroll.addEventListener('scroll', () => {
+      if (!isScrolling) {
+        window.requestAnimationFrame(() => {
+          updateScrollEffects();
+          isScrolling = false;
+        });
+        isScrolling = true;
+      }
+    }, { passive: true });
 
     // --- CUSTOM SMOOTH SCROLL ---
     btnScrollTop.addEventListener('click', () => {
@@ -1303,8 +1302,8 @@
            throw new Error("Could not parse article format.");
         }
 
-        // Inject the perfectly stripped, semantic HTML into the text box
-         const cleanContent = article.content.replace(/\[\d+\]/g, '');
+        // Clean up Wikipedia citations (Removes [1], [53], etc. for distraction-free reading)
+        const cleanContent = article.content.replace(/\[\d+\]/g, '');
 
         // Inject the perfectly stripped, semantic HTML into the text box
         inputText.innerHTML = `<h1>${article.title}</h1>${cleanContent}`;
