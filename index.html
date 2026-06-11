@@ -347,7 +347,7 @@
     <!-- === READ MODE === -->
     <div id="read-view" class="view-transition view-hidden flex w-full flex-col items-center pt-32 pb-8 px-4 sm:px-5" style="max-width: 672px; display: none;">
       
-      <!-- TOP NAV BAR (Back Button Only - TTS Removed) -->
+      <!-- TOP NAV BAR (Back Button Only) -->
       <div class="flex w-full items-center justify-between mb-16">
         <button id="btn-back" class="group flex items-center space-x-2 text-xs uppercase tracking-widest transition-colors opacity-60 hover:opacity-100 font-bold" style="color: var(--text-main);">
           <span class="transition-transform group-hover:-translate-x-1">←</span>
@@ -921,32 +921,59 @@
       setStatus(isYouTube(url) ? "Scraping Video..." : "Bypassing Security...");
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
+      // Helper for robust fetching through our two highly reliable proxies
+      const safeFetch = async (targetUrl) => {
+        try {
+          const res1 = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+          if (res1.ok) return await res1.text();
+        } catch(e) {}
+        const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+        if (!res2.ok) throw new Error("Proxies failed");
+        const data = await res2.json();
+        return data.contents;
+      };
+
       try {
-        // --- 1. YOUTUBE TRANSCRIPT ENGINE ---
+        // --- 1. YOUTUBE TRANSCRIPT ENGINE (NATIVE XML PARSER) ---
         if (isYouTube(url)) {
-          let mdText = "";
-          try {
-            // Attempt 1: Direct Jina AI Call
-            const res = await fetch(`https://r.jina.ai/${url}`);
-            if (!res.ok) throw new Error("Jina Direct Failed");
-            mdText = await res.text();
-          } catch (e) {
-            // Attempt 2: Route Jina AI through a CORS proxy to bypass browser blocks
-            console.warn("Direct YouTube scrape failed, using proxy fallback...");
-            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://r.jina.ai/${url}`)}`);
-            if (!res.ok) throw new Error("Proxy Jina Failed");
-            mdText = await res.text();
-          }
-
-          if (!mdText || mdText.includes("Title: YouTube")) {
-             throw new Error("Could not extract transcript. Video might be restricted.");
-          }
-
-          // Format raw markdown into readable HTML
-          mdText = mdText.replace(/!\[([^\]]*)\]\([^)]+\)/g, ''); // Strip image markdown
-          const paragraphs = mdText.split('\n\n').map(p => `<p>${p}</p>`).join('');
+          const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+          if (!videoIdMatch) throw new Error("Invalid YouTube URL");
+          const videoId = videoIdMatch[1];
           
-          inputText.innerHTML = `<h1>YouTube Transcript</h1>${paragraphs}`;
+          setStatus("Bypassing YouTube...");
+          const pageHtml = await safeFetch('https://www.youtube.com/watch?v=' + videoId);
+
+          const match = pageHtml.match(/"captionTracks":\[\{"baseUrl":"([^"]+)"/);
+          if (!match) throw new Error("No transcript available for this video.");
+          const captionUrl = match[1].replace(/\\u0026/g, '&');
+
+          setStatus("Extracting Captions...");
+          const transcriptXml = await safeFetch(captionUrl);
+
+          const xmlDoc = new DOMParser().parseFromString(transcriptXml, "text/xml");
+          const textNodes = Array.from(xmlDoc.getElementsByTagName("text"));
+          if (!textNodes.length) throw new Error("Transcript is empty.");
+          
+          let formattedTranscript = "";
+          let currentParagraph = "";
+          
+          textNodes.forEach((node, index) => {
+            // Decode common HTML entities from YouTube XML
+            let text = node.textContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+            currentParagraph += text + " ";
+            
+            // Chunk into paragraphs roughly every 12 caption lines
+            if (index > 0 && index % 12 === 0) {
+               formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
+               currentParagraph = "";
+            }
+          });
+          if (currentParagraph) formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
+          
+          const titleMatch = pageHtml.match(/<title>(.*?) - YouTube<\/title>/);
+          const title = titleMatch ? titleMatch[1] : "YouTube Transcript";
+
+          inputText.innerHTML = `<h1>${title}</h1>${formattedTranscript}`;
           showToast("Transcript Extracted 🎥");
           updateWordCount(); saveSettings(); return;
         }
