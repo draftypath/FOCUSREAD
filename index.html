@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bionic Focus Reader</title>
+  <!-- ADD THIS LINE: Gives your site a lightning bolt tab icon and clears the console error -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
   
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -1286,7 +1288,10 @@
         }
 
         // Inject the perfectly stripped, semantic HTML into the text box
-        inputText.innerHTML = `<h1>${article.title}</h1>${article.content}`;
+         const cleanContent = article.content.replace(/\[\d+\]/g, '');
+
+        // Inject the perfectly stripped, semantic HTML into the text box
+        inputText.innerHTML = `<h1>${article.title}</h1>${cleanContent}`;
         
         showToast("Article Extracted ✨");
         updateWordCount();
