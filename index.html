@@ -12,7 +12,7 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Document Parsing & Data Libraries -->
+  <!-- Document Parsing Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -466,18 +466,18 @@
       });
     }
 
-    // --- INITIALIZATION (Restored localStorage for 100% reliable synchronous settings) ---
-    const STORAGE_KEY = 'bionic_focus_settings_v9';
+    // --- INITIALIZATION ---
+    const STORAGE_KEY = 'bionic_focus_settings_v10'; // Incremented key to ensure a fresh start
     let currentRawHTML = ""; 
     let currentBionicRatio = 0.45;
     let currentViewMode = 'edit';
     
-    // Load Theme Synchronously to prevent Flash of Unstyled Theme
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    // Quick-load the theme immediately to prevent screen flashing
+    const initSave = localStorage.getItem(STORAGE_KEY);
+    if (initSave) {
       try {
-        const data = JSON.parse(saved);
-        if (data.theme !== undefined) document.documentElement.style.setProperty('--theme-mix', `${data.theme}%`);
+        const d = JSON.parse(initSave);
+        if (d.theme !== undefined) document.documentElement.style.setProperty('--theme-mix', `${d.theme}%`);
       } catch (e) {}
     }
 
@@ -926,57 +926,58 @@
         `;
       };
 
-      setStatus(isYouTube(url) ? "Scraping Video..." : "Bypassing Security...");
+      setStatus(isYouTube(url) ? "Locating Video..." : "Bypassing Security...");
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
-      // Helper for robust fetching through our triple reliable proxies
-      const safeFetch = async (targetUrl) => {
-        const encodedUrl = encodeURIComponent(targetUrl);
-        const proxies = [
-          `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`,
-          `https://corsproxy.io/?${encodedUrl}`,
-          `https://api.allorigins.win/raw?url=${encodedUrl}`
-        ];
-        
-        for (let p of proxies) {
-          try {
-            let res = await fetch(p);
-            if (res.ok) return await res.text();
-          } catch(e) {}
-        }
-        throw new Error("All proxies failed");
-      };
-
       try {
-        // --- 1. YOUTUBE TRANSCRIPT ENGINE (NATIVE XML PARSER) ---
+        // --- 1. YOUTUBE TRANSCRIPT ENGINE (PIPED API BYPASS) ---
+        // This natively fetches the transcript JSON without triggering Cloudflare proxies
         if (isYouTube(url)) {
           const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
           if (!videoIdMatch) throw new Error("Invalid YouTube URL");
           const videoId = videoIdMatch[1];
           
-          setStatus("Bypassing YouTube...");
-          const pageHtml = await safeFetch('https://www.youtube.com/watch?v=' + videoId);
-
-          const match = pageHtml.match(/"captionTracks":\[\{"baseUrl":"([^"]+)"/);
-          if (!match) throw new Error("No transcript available for this video.");
-          const captionUrl = match[1].replace(/\\u0026/g, '&');
-
           setStatus("Extracting Captions...");
-          const transcriptXml = await safeFetch(captionUrl);
-
+          
+          // Decentralized Open-Source Network (Bypasses YouTube 429 completely)
+          const pipedInstances = [
+            'https://pipedapi.kavin.rocks',
+            'https://api.piped.projectsegfau.lt',
+            'https://pipedapi.smnz.de'
+          ];
+          
+          let streamData = null;
+          for (let instance of pipedInstances) {
+            try {
+              const res = await fetch(`${instance}/streams/${videoId}`);
+              if (res.ok) {
+                streamData = await res.json();
+                break;
+              }
+            } catch (e) {}
+          }
+          
+          if (!streamData) throw new Error("All video servers busy.");
+          if (!streamData.subtitles || streamData.subtitles.length === 0) throw new Error("No transcript exists for this video.");
+          
+          // Isolate the English transcript natively
+          const targetSub = streamData.subtitles.find(s => s.name.toLowerCase().includes('english')) || streamData.subtitles[0];
+          
+          const xmlRes = await fetch(targetSub.url);
+          if (!xmlRes.ok) throw new Error("Failed to download transcript.");
+          const transcriptXml = await xmlRes.text();
+          
           const xmlDoc = new DOMParser().parseFromString(transcriptXml, "text/xml");
-          const textNodes = Array.from(xmlDoc.getElementsByTagName("text"));
-          if (!textNodes.length) throw new Error("Transcript is empty.");
+          const textNodes = Array.from(xmlDoc.getElementsByTagName("text")).length 
+                          ? Array.from(xmlDoc.getElementsByTagName("text")) 
+                          : Array.from(xmlDoc.getElementsByTagName("p"));
           
           let formattedTranscript = "";
           let currentParagraph = "";
           
           textNodes.forEach((node, index) => {
-            // Decode common HTML entities from YouTube XML
             let text = node.textContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
             currentParagraph += text + " ";
-            
-            // Chunk into paragraphs roughly every 12 caption lines
             if (index > 0 && index % 12 === 0) {
                formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
                currentParagraph = "";
@@ -984,10 +985,7 @@
           });
           if (currentParagraph) formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
           
-          const titleMatch = pageHtml.match(/<title>(.*?) - YouTube<\/title>/);
-          const title = titleMatch ? titleMatch[1] : "YouTube Transcript";
-
-          inputText.innerHTML = `<h1>${title}</h1>${formattedTranscript}`;
+          inputText.innerHTML = `<h1>${streamData.title || "YouTube Transcript"}</h1>${formattedTranscript}`;
           showToast("Transcript Extracted 🎥");
           updateWordCount(); saveSettings(); return;
         }
@@ -997,12 +995,12 @@
         const encodedUrl = encodeURIComponent(url);
         const archiveUrl = encodeURIComponent(`https://web.archive.org/web/2/${url}`);
 
-        // Highly resilient chain of HTML Proxies
+        // Highly resilient chain of HTML Proxies with explicit arrow functions
         const proxies = [
-          { name: "Live A (CodeTabs)", fn: async () => await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`)).text() },
-          { name: "Live B (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
-          { name: "Archive A (CodeTabs)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${archiveUrl}`)).text(); } },
-          { name: "Archive B (AllOrigins)", fn: async () => { return await (await fetch(`https://api.allorigins.win/raw?url=${archiveUrl}`)).text(); } }
+          { name: "Live A (AllOrigins)", fn: async () => { const res = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`); if(!res.ok) throw new Error(); return (await res.json()).contents; } },
+          { name: "Live B (CodeTabs)", fn: async () => { const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`); if(!res.ok) throw new Error(); return await res.text(); } },
+          { name: "Live C (CorsProxy)", fn: async () => { const res = await fetch(`https://corsproxy.io/?${encodedUrl}`); if(!res.ok) throw new Error(); return await res.text(); } },
+          { name: "Archive A (AllOrigins)", fn: async () => { setStatus("Bypassing Firewall..."); const res = await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`); if(!res.ok) throw new Error(); return (await res.json()).contents; } }
         ];
 
         for (const proxy of proxies) {
@@ -1093,7 +1091,7 @@
     });
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    // --- SYNCHRONOUS SETTINGS SAVE & LOAD (Restored) ---
+    // --- SYNCHRONOUS SETTINGS SAVE & LOAD (Fully Restored) ---
     function saveSettings() {
       try {
         const data = {
@@ -1111,31 +1109,34 @@
     }
 
     function loadSettings() {
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.theme !== undefined) themeSlider.value = data.theme;
-          if (data.ratio !== undefined) ratioSlider.value = data.ratio;
-          if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
-          if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
-          if (data.width !== undefined) widthSlider.value = data.width;
-          if (data.blur !== undefined) blurSlider.value = data.blur;
-          if (data.text !== undefined) { inputText.innerHTML = data.text; currentRawHTML = data.text.trim(); }
-          if (data.viewState !== undefined) currentViewMode = data.viewState;
-        } catch (e) {}
+      const stored = localStorage.getItem(STORAGE_KEY);
+      let data = {};
+      if (stored) {
+        try { data = JSON.parse(stored); } catch(e){}
       }
 
-      const size = `${fontSizeSlider.value}px`;
-      outputText.style.fontSize = size; inputText.style.fontSize = `${Math.max(12, fontSizeSlider.value - 4)}px`;
-      outputText.style.lineHeight = lineHeightSlider.value; inputText.style.lineHeight = lineHeightSlider.value;
+      if (data.theme !== undefined) { themeSlider.value = data.theme; document.documentElement.style.setProperty('--theme-mix', `${data.theme}%`); }
+      if (data.ratio !== undefined) ratioSlider.value = data.ratio;
+      if (data.fontSize !== undefined) fontSizeSlider.value = data.fontSize;
+      if (data.lineHeight !== undefined) lineHeightSlider.value = data.lineHeight;
+      if (data.width !== undefined) widthSlider.value = data.width;
+      if (data.blur !== undefined) blurSlider.value = data.blur;
+      if (data.text !== undefined) { inputText.innerHTML = data.text; currentRawHTML = data.text.trim(); }
+      if (data.viewState !== undefined) currentViewMode = data.viewState;
+
+      // Apply CSS styles immediately upon load
+      outputText.style.fontSize = `${fontSizeSlider.value}px`;
+      inputText.style.fontSize = `${Math.max(12, fontSizeSlider.value - 4)}px`;
+      outputText.style.lineHeight = lineHeightSlider.value;
+      inputText.style.lineHeight = lineHeightSlider.value;
       readView.style.maxWidth = `${widthSlider.value}px`;
-      blurTop.style.height = `${blurSlider.value}vh`; blurBottom.style.height = `${blurSlider.value}vh`;
+      blurTop.style.height = `${blurSlider.value}vh`;
+      blurBottom.style.height = `${blurSlider.value}vh`;
       
       currentBionicRatio = ratioSlider.value / 100;
       updateWordCount(); updateConvertButtonVisibility();
 
       if (currentViewMode === 'read' && currentRawHTML) {
-        // Run worker on startup if in read mode
         bionicWorker.onmessage = (e) => {
           outputText.innerHTML = e.data;
           if (inputText.innerText.length < 300) scrollIndicator.style.display = 'none';
