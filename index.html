@@ -988,7 +988,7 @@
           { name: "Live A (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
           { name: "Live B (AllOrigins)", fn: async () => { setStatus("Trying Route 2..."); return (await (await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`)).json()).contents; } },
           { name: "Archive A (CorsProxy)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://corsproxy.io/?${archiveUrl}`)).text(); } },
-          { name: "Archive B (AllOrigins)", fn: async () => return (await (await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`)).json()).contents; }
+          { name: "Archive B (AllOrigins)", fn: async () => { return (await (await fetch(`https://api.allorigins.win/get?url=${archiveUrl}`)).json()).contents; } }
         ];
 
         for (const proxy of proxies) {
