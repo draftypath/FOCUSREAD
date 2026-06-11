@@ -15,7 +15,7 @@
   <!-- Document Parsing Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.90/epub.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.min.js"></script>
   <script>
@@ -232,7 +232,7 @@
     <span id="toast-message" class="text-[11px] uppercase tracking-widest font-bold whitespace-nowrap">Message</span>
   </div>
 
-  <!-- Blurs (Optimized for 0% GPU load) -->
+  <!-- Blurs -->
   <div id="blur-top" class="pointer-events-none fixed left-0 top-0 z-40 w-full select-none opacity-0" style="height: 30vh; background: linear-gradient(to bottom, var(--bg-color) 10%, transparent); transition: opacity 0.3s ease; transform: translateZ(0);"></div>
   <div id="blur-bottom" class="pointer-events-none fixed left-0 bottom-0 z-40 w-full select-none opacity-0" style="height: 30vh; background: linear-gradient(to top, var(--bg-color) 10%, transparent); transition: opacity 0.3s ease; transform: translateZ(0);"></div>
   <div id="blur-edit-bottom" class="pointer-events-none fixed left-0 bottom-0 z-[5] w-full select-none transition-opacity duration-700 opacity-100" style="height: 15vh; background: linear-gradient(to top, var(--bg-color) 10%, transparent); transform: translateZ(0);"></div>
@@ -324,7 +324,6 @@
           style="font-size: 14px; color: var(--text-main); line-height: 1.9; text-align: left;"
         ></div>
 
-        <!-- STRICT WORD COUNT (REMOVED READING TIME) -->
         <div id="word-count" class="absolute -bottom-6 right-6 text-[9px] uppercase tracking-widest transition-opacity duration-300 pointer-events-none" style="color: var(--text-main); opacity: 0;">
           0 Words
         </div>
@@ -930,8 +929,7 @@
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
       try {
-        // --- 1. YOUTUBE TRANSCRIPT ENGINE (PIPED API BYPASS) ---
-        // This natively fetches the transcript JSON without triggering Cloudflare proxies
+        // --- 1. YOUTUBE TRANSCRIPT ENGINE (PIPED API BYPASS + PROXY CHAIN) ---
         if (isYouTube(url)) {
           const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
           if (!videoIdMatch) throw new Error("Invalid YouTube URL");
@@ -939,7 +937,6 @@
           
           setStatus("Extracting Captions...");
           
-          // Decentralized Open-Source Network (Bypasses YouTube 429 completely)
           const pipedInstances = [
             'https://pipedapi.kavin.rocks',
             'https://api.piped.projectsegfau.lt',
@@ -949,11 +946,27 @@
           let streamData = null;
           for (let instance of pipedInstances) {
             try {
-              const res = await fetch(`${instance}/streams/${videoId}`);
-              if (res.ok) {
-                streamData = await res.json();
-                break;
+              const fetchUrl = `${instance}/streams/${videoId}`;
+              const encodedUrl = encodeURIComponent(fetchUrl);
+              
+              // Proxies to explicitly bypass CORS errors from the Piped Network
+              const fetchProxies = [
+                async () => { const r = await fetch(fetchUrl); if(!r.ok) throw new Error(); return await r.json(); },
+                async () => { const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`); if(!r.ok) throw new Error(); return await r.json(); },
+                async () => { const r = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`); if(!r.ok) throw new Error(); const d = await r.json(); return JSON.parse(d.contents); },
+                async () => { const r = await fetch(`https://corsproxy.io/?${encodedUrl}`); if(!r.ok) throw new Error(); return await r.json(); }
+              ];
+
+              for (const fn of fetchProxies) {
+                try {
+                  const data = await fn();
+                  if (data && data.subtitles) {
+                    streamData = data;
+                    break;
+                  }
+                } catch (e) {}
               }
+              if (streamData && streamData.subtitles) break;
             } catch (e) {}
           }
           
@@ -963,9 +976,30 @@
           // Isolate the English transcript natively
           const targetSub = streamData.subtitles.find(s => s.name.toLowerCase().includes('english')) || streamData.subtitles[0];
           
-          const xmlRes = await fetch(targetSub.url);
-          if (!xmlRes.ok) throw new Error("Failed to download transcript.");
-          const transcriptXml = await xmlRes.text();
+          setStatus("Downloading XML...");
+          
+          const xmlUrl = targetSub.url;
+          const encodedXmlUrl = encodeURIComponent(xmlUrl);
+          
+          let transcriptXml = null;
+          const xmlProxies = [
+              async () => { const r = await fetch(xmlUrl); if(!r.ok) throw new Error(); return await r.text(); },
+              async () => { const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedXmlUrl}`); if(!r.ok) throw new Error(); return await r.text(); },
+              async () => { const r = await fetch(`https://api.allorigins.win/get?url=${encodedXmlUrl}`); if(!r.ok) throw new Error(); const d = await r.json(); return d.contents; },
+              async () => { const r = await fetch(`https://corsproxy.io/?${encodedXmlUrl}`); if(!r.ok) throw new Error(); return await r.text(); }
+          ];
+
+          for (const fn of xmlProxies) {
+            try {
+              const text = await fn();
+              if (text && (text.includes('<text') || text.includes('<p'))) {
+                transcriptXml = text;
+                break;
+              }
+            } catch (e) {}
+          }
+
+          if (!transcriptXml) throw new Error("Failed to download transcript.");
           
           const xmlDoc = new DOMParser().parseFromString(transcriptXml, "text/xml");
           const textNodes = Array.from(xmlDoc.getElementsByTagName("text")).length 
