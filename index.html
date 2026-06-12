@@ -10,8 +10,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
   <meta name="theme-color" content="#161618">
   
-  <!-- Tailwind + Official Typography Plugin -->
-  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- Document Parsing & Data Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
@@ -32,7 +31,7 @@
 
       --bg-color: color-mix(in srgb, #161618 var(--theme-mix), #f5f4f3);
       --text-main: color-mix(in srgb, #ffffff var(--theme-mix), #000000);
-      --text-dim: color-mix(in srgb, var(--text-main) 70%, transparent);
+      --text-dim: var(--text-main);
       
       --panel-bg: color-mix(in srgb, rgba(30, 30, 32, 0.75) var(--theme-mix), rgba(255, 255, 255, 0.7));
       --panel-border: color-mix(in srgb, rgba(255, 255, 255, 0.05) var(--theme-mix), rgba(255, 255, 255, 0.5));
@@ -76,45 +75,79 @@
       visibility: visible;
     }
 
-    /* --- TAILWIND TYPOGRAPHY OVERRIDES --- */
-    /* This perfectly maps Tailwind's robust typography styling to our dynamic light/dark slider */
-    .prose {
-      --tw-prose-body: var(--text-main);
-      --tw-prose-headings: var(--text-main);
-      --tw-prose-lead: color-mix(in srgb, var(--text-main) 80%, transparent);
-      --tw-prose-links: var(--text-main);
-      --tw-prose-bold: var(--text-main);
-      --tw-prose-counters: color-mix(in srgb, var(--text-main) 60%, transparent);
-      --tw-prose-bullets: color-mix(in srgb, var(--text-main) 50%, transparent);
-      --tw-prose-hr: var(--panel-border);
-      --tw-prose-quotes: var(--text-main);
-      --tw-prose-quote-borders: color-mix(in srgb, var(--text-main) 20%, transparent);
-      --tw-prose-captions: color-mix(in srgb, var(--text-main) 60%, transparent);
-      --tw-prose-code: var(--text-main);
-      --tw-prose-pre-code: var(--text-main);
-      --tw-prose-pre-bg: var(--input-bg);
-      --tw-prose-th-borders: var(--panel-border);
-      --tw-prose-td-borders: var(--panel-border);
-    }
-
-    .prose img {
-      border-radius: 12px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      margin-top: 2.5em; margin-bottom: 2.5em;
+    /* --- PERFORMANCE CLASSES --- */
+    .rich-text-area {
+      white-space: pre-wrap; 
+      word-break: break-word; 
     }
     
-    .prose p { line-height: inherit; margin-bottom: 1.25em; }
-    
-    /* Bionic Text Styling injected by the DOM Walker */
-    .bionic-bold { font-weight: 700 !important; color: var(--text-main) !important; }
-    .bionic-dim { font-weight: 400 !important; color: var(--text-dim) !important; opacity: 0.8; }
+    .sliding-active {
+      text-align: left !important;
+      will-change: max-width, font-size, line-height;
+    }
 
-    .sliding-active { text-align: left !important; will-change: max-width, font-size, line-height; }
+    .rich-text-area * {
+      background-color: transparent !important;
+      font-family: inherit !important;
+      font-size: inherit !important;
+      line-height: inherit !important;
+      font-weight: 400 !important; 
+      color: inherit !important;
+      text-align: inherit;
+    }
+
+    .rich-text-area .bionic-bold,
+    .bionic-bold {
+      font-weight: 700 !important;
+      color: var(--text-main) !important;
+    }
+    .rich-text-area .bionic-dim,
+    .bionic-dim {
+      font-weight: 400 !important;
+      color: var(--text-dim) !important;
+    }
+    
+    .rich-text-area img, 
+    .rich-text-area figure,
+    .rich-text-area picture {
+      max-width: 100% !important;
+      height: auto !important;
+      border-radius: 12px !important;
+      margin: 2.5rem auto !important;
+      display: block !important;
+    }
+
+    .rich-text-area iframe,
+    .rich-text-area svg,
+    .rich-text-area video,
+    .rich-text-area audio { 
+      display: none !important; 
+    }
+    
+    .rich-text-area table { 
+      margin-bottom: 1.5em !important; 
+      opacity: 0.85;
+    }
+    .rich-text-area td, .rich-text-area th { 
+      padding-right: 1em !important; 
+    }
+
+    .rich-text-area p { margin-bottom: 1.25em !important; }
+    .rich-text-area h1, .rich-text-area h2, .rich-text-area h3 {
+      font-weight: 700 !important;
+      margin-top: 1.5em !important;
+      margin-bottom: 0.5em !important;
+      color: var(--text-main) !important;
+    }
+    .rich-text-area h1 { font-size: 1.5em !important; line-height: 1.2 !important; }
+    .rich-text-area h2 { font-size: 1.25em !important; }
 
     [contenteditable="true"]:empty::before {
       content: attr(data-placeholder);
-      color: color-mix(in srgb, var(--text-main) 50%, transparent);
-      pointer-events: none; display: block;
+      color: var(--text-dim);
+      opacity: 0.6;
+      pointer-events: none;
+      display: block;
     }
 
     /* --- RECESSED HARDWARE WELL TEXT BOX --- */
@@ -127,11 +160,14 @@
         inset 5px 5px 12px var(--well-shadow-dark), 
         inset -5px -5px 12px var(--well-shadow-light);
       transition: border-color 0.4s ease, box-shadow 0.4s ease, background-color 0.4s ease;
-      outline: none; white-space: pre-wrap; word-break: break-word;
+      outline: none;
     }
 
     @media (min-width: 640px) {
-      #input-text { border-radius: 24px; padding: 0.7rem 2.5rem 5rem 2.5rem; }
+      #input-text {
+        border-radius: 24px; 
+        padding: 0.7rem 2.5rem 5rem 2.5rem; 
+      }
     }
 
     #input-text:focus {
@@ -284,10 +320,11 @@
           id="input-text" 
           contenteditable="true"
           data-placeholder="Paste a link, text, or drop a file (.pdf, .epub, .docx)..."
-          class="no-scrollbar w-full h-[45vh] max-h-[45vh] overflow-y-auto relative z-10"
+          class="rich-text-area no-scrollbar w-full h-[45vh] max-h-[45vh] overflow-y-auto relative z-10"
           style="font-size: 14px; color: var(--text-main); line-height: 1.9; text-align: left;"
         ></div>
 
+        <!-- STRICT WORD COUNT (REMOVED READING TIME) -->
         <div id="word-count" class="absolute -bottom-6 right-6 text-[9px] uppercase tracking-widest transition-opacity duration-300 pointer-events-none" style="color: var(--text-main); opacity: 0;">
           0 Words
         </div>
@@ -323,8 +360,7 @@
         </span>
       </div>
 
-      <!-- NEW: Tailwind Typography Plugin Formatting Engine (`prose prose-invert`) -->
-      <div id="output-text" class="prose prose-invert max-w-none w-full tracking-wide transition-all" style="font-size: 18px; line-height: 1.9; text-align: left;">
+      <div id="output-text" class="rich-text-area w-full tracking-wide transition-all" style="font-size: 18px; line-height: 1.9; text-align: left;">
       </div>
 
     </div>
@@ -430,6 +466,7 @@
       });
     }
 
+    // --- INITIALIZATION (Restored localStorage for 100% reliable synchronous settings) ---
     const STORAGE_KEY = 'bionic_focus_settings_v9';
     let currentRawHTML = ""; 
     let currentBionicRatio = 0.45;
@@ -444,65 +481,49 @@
       } catch (e) {}
     }
 
-    // --- NEW: FLAWLESS DOM WALKER ENGINE ---
-    // This replaces the Web Worker/Regex entirely. It flawlessly walks the DOM tree,
-    // ignores HTML formatting, and applies math strictly to raw words.
-    async function applyBionicDOM(html, ratio) {
-      if (ratio <= 0) return html;
-
-      // Create an invisible DOM to manipulate safely
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
-
-      const nodesToReplace = [];
-      let node;
-      while ((node = walker.nextNode())) {
-        const parentTag = node.parentNode.tagName.toLowerCase();
-        // Skip tags that shouldn't be mathematically touched
-        if (['script', 'style', 'noscript', 'code', 'pre', 'svg'].includes(parentTag)) continue;
-        if (!node.nodeValue.trim()) continue;
-        nodesToReplace.push(node);
-      }
-
-      // Process in lightning-fast chunks to prevent the UI from freezing on massive documents
-      const chunkSize = 200; 
-      for (let i = 0; i < nodesToReplace.length; i += chunkSize) {
-        const chunk = nodesToReplace.slice(i, i + chunkSize);
+    // Create the background Web Worker from a Blob
+    const bionicWorkerCode = `
+      self.onmessage = function(e) {
+        const { html, ratio } = e.data;
         
-        chunk.forEach(txtNode => {
-          const text = txtNode.nodeValue;
-          const chunks = text.split(/([\s\n]+)/); // Preserve all original spacing
-          
-          const newHtml = chunks.map(word => {
-            if (/^[\s\n]+$/.test(word)) return word; 
-            
-            // Apply math only to word characters
-            return word.replace(/[a-zA-Z0-9À-ÿ]+(?:['’][a-zA-Z0-9À-ÿ]+)*/g, (w) => {
-              if (/^[0-9]+$/.test(w)) return '<span class="bionic-bold">' + w + '</span>'; // Bold numbers
-              const len = w.length;
-              let boldLen = Math.ceil(len * ratio);
-              if (boldLen < 1) boldLen = 1;
-              if (boldLen > len) boldLen = len;
-              return '<span class="bionic-bold">' + w.slice(0, boldLen) + '</span><span class="bionic-dim">' + w.slice(boldLen) + '</span>';
-            });
-          }).join('');
+        // If slider is completely off, return raw HTML unaltered
+        if (ratio <= 0) {
+          self.postMessage(html);
+          return;
+        }
 
-          // Replace old text node with the flawlessly formatted HTML
-          const temp = document.createElement('span');
-          temp.innerHTML = newHtml;
-          while(temp.firstChild) {
-            txtNode.parentNode.insertBefore(temp.firstChild, txtNode);
+        const tokenRegex = /(<[^>]+>)|([^<]+)/g;
+        let result = '';
+        let match;
+        
+        while ((match = tokenRegex.exec(html)) !== null) {
+          if (match[1]) {
+            result += match[1]; // Keep HTML tags exactly as they are
+          } else if (match[2]) {
+            let text = match[2];
+            if (!text.trim()) {
+              result += text;
+              continue;
+            }
+            const chunks = text.split(/([\\s\\n]+)/);
+            result += chunks.map(chunk => {
+              if (/^[\\s\\n]+$/.test(chunk)) return chunk;
+              return chunk.replace(/[a-zA-Z0-9À-ÿ]+(?:['’][a-zA-Z0-9À-ÿ]+)*/g, (word) => {
+                if (/^[0-9]+$/.test(word)) return '<span class="bionic-bold">' + word + '</span>';
+                const len = word.length;
+                let boldLen = Math.ceil(len * ratio);
+                if (boldLen < 1) boldLen = 1;
+                if (boldLen > len) boldLen = len;
+                return '<span class="bionic-bold">' + word.slice(0, boldLen) + '</span><span class="bionic-dim">' + word.slice(boldLen) + '</span>';
+              });
+            }).join('');
           }
-          txtNode.parentNode.removeChild(txtNode);
-        });
-        
-        // Let the browser breathe every chunk to keep 60fps animations smooth
-        await new Promise(r => setTimeout(r, 0));
+        }
+        self.postMessage(result);
       }
-
-      return doc.body.innerHTML;
-    }
+    `;
+    const workerBlob = new Blob([bionicWorkerCode], { type: 'application/javascript' });
+    const bionicWorker = new Worker(URL.createObjectURL(workerBlob));
 
     // --- Cinematic Intro Sequence ---
     window.addEventListener('DOMContentLoaded', () => {
@@ -576,6 +597,7 @@
     const blurBottom = document.getElementById('blur-bottom');
     let settingsOpen = false;
 
+    // Helper to get text reliably even when the view is display:none
     function getEditorText() {
       return inputText.innerText || inputText.textContent || "";
     }
@@ -604,8 +626,11 @@
     // --- HIGH-PERFORMANCE SCROLL EFFECTS ---
     function updateScrollEffects() {
       if (currentViewMode !== 'read') {
-        blurTop.style.opacity = '0'; blurBottom.style.opacity = '0'; progressContainer.style.opacity = '0';
-        btnScrollTop.classList.remove('opacity-100', 'pointer-events-auto'); btnScrollTop.classList.add('opacity-0', 'pointer-events-none');
+        blurTop.style.opacity = '0';
+        blurBottom.style.opacity = '0';
+        progressContainer.style.opacity = '0';
+        btnScrollTop.classList.remove('opacity-100', 'pointer-events-auto');
+        btnScrollTop.classList.add('opacity-0', 'pointer-events-none');
         return;
       }
       const scrollTop = mainScroll.scrollTop;
@@ -629,25 +654,33 @@
       }
 
       if (scrollTop > clientHeight * 0.9) {
-        btnScrollTop.classList.remove('opacity-0', 'pointer-events-none'); btnScrollTop.classList.add('opacity-100', 'pointer-events-auto');
+        btnScrollTop.classList.remove('opacity-0', 'pointer-events-none');
+        btnScrollTop.classList.add('opacity-100', 'pointer-events-auto');
       } else {
-        btnScrollTop.classList.remove('opacity-100', 'pointer-events-auto'); btnScrollTop.classList.add('opacity-0', 'pointer-events-none');
+        btnScrollTop.classList.remove('opacity-100', 'pointer-events-auto');
+        btnScrollTop.classList.add('opacity-0', 'pointer-events-none');
       }
     }
 
     let isScrolling = false;
     mainScroll.addEventListener('scroll', () => {
       if (!isScrolling) {
-        window.requestAnimationFrame(() => { updateScrollEffects(); isScrolling = false; });
+        window.requestAnimationFrame(() => {
+          updateScrollEffects();
+          isScrolling = false;
+        });
         isScrolling = true;
       }
     }, { passive: true });
 
     btnScrollTop.addEventListener('click', () => {
-      const startPos = mainScroll.scrollTop; const duration = 700; const startTime = performance.now();
+      const startPos = mainScroll.scrollTop;
+      const duration = 700; 
+      const startTime = performance.now();
       function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
       function animateScroll(currentTime) {
-        const elapsed = currentTime - startTime; const progress = Math.min(elapsed / duration, 1);
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
         mainScroll.scrollTop = startPos * (1 - easeOutCubic(progress));
         if (progress < 1) requestAnimationFrame(animateScroll);
       }
@@ -666,7 +699,7 @@
     }
     const isYouTube = url => /(?:youtube\.com|youtu\.be)/.test(url);
 
-    // --- WORD COUNT UPDATER ---
+    // --- WORD COUNT UPDATER (Strictly words, no timer) ---
     function updateWordCount() {
       if(!wordCountEl) return;
       const text = getEditorText().trim();
@@ -689,17 +722,26 @@
       const applyVisibility = () => {
         if (hasText) {
           if (isURL(text)) {
-            if (isYouTube(text)) { btnConvert.innerHTML = 'Extract Transcript 🎥'; } 
-            else { btnConvert.innerHTML = 'Extract Article ✨'; }
-            btnConvert.style.backgroundColor = 'var(--text-main)'; btnConvert.style.color = 'var(--bg-color)';
+            if (isYouTube(text)) {
+              btnConvert.innerHTML = 'Extract Transcript 🎥';
+            } else {
+              btnConvert.innerHTML = 'Extract Article ✨';
+            }
+            btnConvert.style.backgroundColor = 'var(--text-main)';
+            btnConvert.style.color = 'var(--bg-color)';
           } else {
-            btnConvert.innerHTML = 'Read Text'; btnConvert.style.backgroundColor = 'var(--btn-bg)'; btnConvert.style.color = 'var(--btn-text)';
+            btnConvert.innerHTML = 'Read Text';
+            btnConvert.style.backgroundColor = 'var(--btn-bg)';
+            btnConvert.style.color = 'var(--btn-text)';
           }
-          btnConvert.classList.remove('opacity-0', 'pointer-events-none'); btnConvert.classList.add('opacity-100', 'pointer-events-auto');
+          btnConvert.classList.remove('opacity-0', 'pointer-events-none');
+          btnConvert.classList.add('opacity-100', 'pointer-events-auto');
         } else {
-          btnConvert.classList.remove('opacity-100', 'pointer-events-auto'); btnConvert.classList.add('opacity-0', 'pointer-events-none');
+          btnConvert.classList.remove('opacity-100', 'pointer-events-auto');
+          btnConvert.classList.add('opacity-0', 'pointer-events-none');
         }
       };
+
       if (delayMs > 0 && hasText) convertBtnTimeout = setTimeout(applyVisibility, delayMs);
       else applyVisibility();
     }
@@ -709,10 +751,12 @@
     // --- FILE UPLOAD (PDF, DOCX, PAGES, EPUB) ---
     btnUpload.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFile);
+
     inputText.addEventListener('dragover', (e) => { e.preventDefault(); inputText.classList.add('drag-over'); });
     inputText.addEventListener('dragleave', () => { inputText.classList.remove('drag-over'); });
     inputText.addEventListener('drop', (e) => {
-      e.preventDefault(); inputText.classList.remove('drag-over');
+      e.preventDefault();
+      inputText.classList.remove('drag-over');
       if (e.dataTransfer.files.length) handleFile({ target: { files: e.dataTransfer.files } });
       else setTimeout(updateConvertButtonVisibility, 50);
     });
@@ -741,9 +785,7 @@
       if (['txt', 'html', 'htm', 'md'].includes(ext)) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          if (ext === 'txt' || ext === 'md') {
-            inputText.innerHTML = ev.target.result.split('\n').map(line => `<p>${line}</p>`).join('');
-          } 
+          if (ext === 'txt' || ext === 'md') inputText.innerText = ev.target.result; 
           else inputText.innerHTML = ev.target.result; 
           finalizeUpload();
         };
@@ -760,21 +802,43 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           try {
-            const book = ePub(ev.target.result); await book.ready; let fullText = "";
+            const book = ePub(ev.target.result);
+            await book.ready;
+            let fullText = "";
             for (const item of book.spine.items) {
                let doc = await book.load(item.href);
                if(typeof doc === 'string') doc = new DOMParser().parseFromString(doc, "application/xhtml+xml");
                if (doc && doc.body) fullText += doc.body.innerHTML + "<br/>";
             }
-            inputText.innerHTML = fullText; finalizeUpload();
-          } catch(e) { showToast("Error reading EPUB"); finalizeUpload(false); }
+            inputText.innerHTML = fullText;
+            finalizeUpload();
+          } catch(e) {
+            console.error(e);
+            showToast("Error reading EPUB");
+            finalizeUpload(false);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else if (ext === 'pages') {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const zip = await JSZip.loadAsync(ev.target.result);
+            let xmlFile = zip.file("index.xml") || zip.file("Index/Document.xml");
+            if (!xmlFile) throw new Error("No text found");
+            const xmlData = await xmlFile.async("string");
+            const cleanText = xmlData.replace(/<\/([a-zA-Z0-9]+:)?p>/g, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n\s*\n/g, '\n\n').trim();
+            inputText.innerText = cleanText;
+            finalizeUpload();
+          } catch (err) { showToast("Error reading Pages document"); finalizeUpload(false); }
         };
         reader.readAsArrayBuffer(file);
       } else if (ext === 'pdf') {
         const reader = new FileReader();
         reader.onload = async (ev) => {
           try {
-            const pdf = await pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise; let fullText = "";
+            const pdf = await pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise;
+            let fullText = "";
             for (let i = 1; i <= pdf.numPages; i++) {
               const content = await (await pdf.getPage(i)).getTextContent();
               let lastY = -1; let pageText = "";
@@ -784,7 +848,7 @@
               }
               fullText += pageText + "\n\n";
             }
-            inputText.innerHTML = fullText.split('\n\n').map(p => `<p>${p}</p>`).join('');
+            inputText.innerText = fullText.replace(/([^\n])\n([^\n])/g, '$1 $2').replace(/([a-zA-Z])- ([a-zA-Z])/g, '$1$2').replace(/\n{3,}/g, '\n\n').trim();
             finalizeUpload();
           } catch (err) { showToast("Error reading PDF"); finalizeUpload(false); }
         };
@@ -830,8 +894,10 @@
         if (instant) editView.style.display = 'none';
         else setTimeout(() => { if (currentViewMode === 'read') editView.style.display = 'none'; }, 400);
       } else {
+        // Switching back to edit
         editView.style.display = 'flex'; void editView.offsetWidth;
         
+        // Force evaluation of word count and button visibility now that the edit view has layout and text can be accurately read.
         updateConvertButtonVisibility();
         updateWordCount();
         
@@ -866,7 +932,7 @@
       saveSettings();
     }
 
-    // --- SEPARATED ARTICLE & YOUTUBE EXTRACTORS + PRE-SCRUBBER ---
+    // --- SEPARATED ARTICLE & YOUTUBE EXTRACTORS ---
     async function extractArticleFromURL(url) {
       const originalHTML = inputText.innerHTML;
       const setStatus = (msg) => {
@@ -881,6 +947,7 @@
       setStatus(isYouTube(url) ? "Scraping Video..." : "Bypassing Security...");
       btnConvert.classList.add('pointer-events-none', 'opacity-80');
 
+      // Helper for robust fetching through our triple reliable proxies
       const safeFetch = async (targetUrl) => {
         const encodedUrl = encodeURIComponent(targetUrl);
         const proxies = [
@@ -888,17 +955,23 @@
           `https://corsproxy.io/?${encodedUrl}`,
           `https://api.allorigins.win/raw?url=${encodedUrl}`
         ];
+        
         for (let p of proxies) {
-          try { let res = await fetch(p); if (res.ok) return await res.text(); } catch(e) {}
+          try {
+            let res = await fetch(p);
+            if (res.ok) return await res.text();
+          } catch(e) {}
         }
         throw new Error("All proxies failed");
       };
 
       try {
+        // --- 1. YOUTUBE TRANSCRIPT ENGINE (NATIVE XML PARSER) ---
         if (isYouTube(url)) {
           const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
           if (!videoIdMatch) throw new Error("Invalid YouTube URL");
           const videoId = videoIdMatch[1];
+          
           setStatus("Bypassing YouTube...");
           const pageHtml = await safeFetch('https://www.youtube.com/watch?v=' + videoId);
 
@@ -908,15 +981,24 @@
 
           setStatus("Extracting Captions...");
           const transcriptXml = await safeFetch(captionUrl);
+
           const xmlDoc = new DOMParser().parseFromString(transcriptXml, "text/xml");
           const textNodes = Array.from(xmlDoc.getElementsByTagName("text"));
           if (!textNodes.length) throw new Error("Transcript is empty.");
           
-          let formattedTranscript = ""; let currentParagraph = "";
+          let formattedTranscript = "";
+          let currentParagraph = "";
+          
           textNodes.forEach((node, index) => {
+            // Decode common HTML entities from YouTube XML
             let text = node.textContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
             currentParagraph += text + " ";
-            if (index > 0 && index % 12 === 0) { formattedTranscript += `<p>${currentParagraph.trim()}</p>`; currentParagraph = ""; }
+            
+            // Chunk into paragraphs roughly every 12 caption lines
+            if (index > 0 && index % 12 === 0) {
+               formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
+               currentParagraph = "";
+            }
           });
           if (currentParagraph) formattedTranscript += `<p>${currentParagraph.trim()}</p>`;
           
@@ -924,59 +1006,55 @@
           const title = titleMatch ? titleMatch[1] : "YouTube Transcript";
 
           inputText.innerHTML = `<h1>${title}</h1>${formattedTranscript}`;
-          showToast("Transcript Extracted 🎥"); updateWordCount(); saveSettings(); return;
+          showToast("Transcript Extracted 🎥");
+          updateWordCount(); saveSettings(); return;
         }
 
+        // --- 2. STANDARD ARTICLE ENGINE ---
         let htmlText = "";
         const encodedUrl = encodeURIComponent(url);
         const archiveUrl = encodeURIComponent(`https://web.archive.org/web/2/${url}`);
 
+        // Highly resilient chain of HTML Proxies
         const proxies = [
-          { name: "Live A", fn: async () => await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`)).text() },
-          { name: "Live B", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
-          { name: "Archive A", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${archiveUrl}`)).text(); } }
+          { name: "Live A (CodeTabs)", fn: async () => await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`)).text() },
+          { name: "Live B (CorsProxy)", fn: async () => await (await fetch(`https://corsproxy.io/?${encodedUrl}`)).text() },
+          { name: "Archive A (CodeTabs)", fn: async () => { setStatus("Bypassing Firewall..."); return await (await fetch(`https://api.codetabs.com/v1/proxy?quest=${archiveUrl}`)).text(); } },
+          { name: "Archive B (AllOrigins)", fn: async () => { return await (await fetch(`https://api.allorigins.win/raw?url=${archiveUrl}`)).text(); } }
         ];
 
         for (const proxy of proxies) {
-          try { htmlText = await proxy.fn(); if (htmlText && htmlText.toLowerCase().includes('<html')) break; } catch (e) { }
+          try {
+            console.log(`[Proxy Engine] Attempting ${proxy.name}...`);
+            htmlText = await proxy.fn();
+            if (htmlText && htmlText.toLowerCase().includes('<html')) break; 
+          } catch (e) { }
         }
 
-        if (!htmlText || !htmlText.toLowerCase().includes('<html')) throw new Error("Extraction routes blocked.");
+        if (!htmlText || !htmlText.toLowerCase().includes('<html')) throw new Error("All extraction routes blocked.");
 
         const doc = new DOMParser().parseFromString(htmlText, 'text/html');
-        
-        // === NEW: PRE-SCRUBBER ENGINE ===
-        // 1. Repair Relative Image Links
-        try {
-          const baseUrl = new URL(url).origin;
-          const baseEl = doc.createElement('base'); baseEl.href = baseUrl; doc.head.appendChild(baseEl);
-          doc.querySelectorAll('img').forEach(img => {
-            if (img.getAttribute('src') && !img.getAttribute('src').startsWith('http') && !img.getAttribute('src').startsWith('data:')) {
-               img.src = new URL(img.getAttribute('src'), baseUrl).href;
-            }
-          });
-        } catch(e) {}
-
-        // 2. Erase Wikipedia citations [1], "Edit" tags, & common ad clutter
-        doc.querySelectorAll('.reference, .mw-editsection, .navbox, .infobox, .ad, .social-share, .newsletter-signup').forEach(el => el.remove());
-        // =================================
+        try { const base = doc.createElement('base'); base.href = new URL(url).origin; doc.head.appendChild(base); } catch(e) {}
 
         const article = new Readability(doc).parse();
-        if (!article || !article.textContent.trim()) throw new Error("Could not parse format.");
+        if (!article || !article.textContent.trim()) throw new Error("Could not parse article format.");
 
-        inputText.innerHTML = `<h1>${article.title}</h1>${article.content}`;
+        const cleanContent = article.content.replace(/\[\d+\]/g, ''); // Removes Wikipedia [1] tags
+        inputText.innerHTML = `<h1>${article.title}</h1>${cleanContent}`;
         
-        showToast("Article Extracted ✨"); updateWordCount(); saveSettings();
+        showToast("Article Extracted ✨");
+        updateWordCount(); saveSettings();
 
       } catch (error) {
         showToast("Site highly encrypted. Please copy/paste text manually.");
         inputText.innerHTML = originalHTML; 
       } finally {
-        btnConvert.classList.remove('pointer-events-none', 'opacity-80'); updateConvertButtonVisibility();
+        btnConvert.classList.remove('pointer-events-none', 'opacity-80');
+        updateConvertButtonVisibility();
       }
     }
 
-    // --- MAIN CTA ---
+    // --- MAIN CTA (WEB WORKER INTEGRATION) ---
     btnConvert.addEventListener('click', async () => {
       const text = getEditorText().trim();
       if (isURL(text)) return await extractArticleFromURL(text);
@@ -987,6 +1065,7 @@
       if (getEditorText().length < 300) scrollIndicator.style.display = 'none';
       else scrollIndicator.style.display = 'grid';
 
+      // Switch Button to Processing State (No UI Freeze!)
       btnConvert.innerHTML = `
         <svg class="inline-block w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -995,16 +1074,20 @@
       `;
       btnConvert.classList.add('pointer-events-none');
 
-      // Kick off the flawless DOM walker algorithm asynchronously
-      setTimeout(async () => {
-        outputText.innerHTML = await applyBionicDOM(currentRawHTML, currentBionicRatio);
+      bionicWorker.onmessage = (e) => {
+        outputText.innerHTML = e.data;
         switchView('read', false);
         btnConvert.classList.remove('pointer-events-none');
         updateConvertButtonVisibility();
-      }, 50); // slight delay ensures UI updates the loading spinner
+      };
+
+      // Send heavy computation to the background thread
+      bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
     });
 
-    btnBack.addEventListener('click', () => switchView('edit', false));
+    btnBack.addEventListener('click', () => {
+      switchView('edit', false);
+    });
 
     // --- SETTINGS MENU LOGIC ---
     settingsToggle.addEventListener('click', (e) => {
@@ -1030,7 +1113,7 @@
     });
     settingsPanel.addEventListener('click', (e) => e.stopPropagation());
 
-    // --- SYNCHRONOUS SETTINGS SAVE & LOAD ---
+    // --- SYNCHRONOUS SETTINGS SAVE & LOAD (Restored) ---
     function saveSettings() {
       try {
         const data = {
@@ -1040,11 +1123,14 @@
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch (e) {
-        if (e.name === 'QuotaExceededError') showToast("Warning: Document too large to auto-save");
+        console.warn("Storage full!", e);
+        if (e.name === 'QuotaExceededError') {
+          showToast("Warning: Document too large to auto-save");
+        }
       }
     }
 
-    async function loadSettings() {
+    function loadSettings() {
       if (saved) {
         try {
           const data = JSON.parse(saved);
@@ -1069,10 +1155,14 @@
       updateWordCount(); updateConvertButtonVisibility();
 
       if (currentViewMode === 'read' && currentRawHTML) {
-        outputText.innerHTML = await applyBionicDOM(currentRawHTML, currentBionicRatio);
-        if (getEditorText().length < 300) scrollIndicator.style.display = 'none';
-        else scrollIndicator.style.display = 'grid';
-        switchView('read', true); 
+        // Run worker on startup if in read mode
+        bionicWorker.onmessage = (e) => {
+          outputText.innerHTML = e.data;
+          if (getEditorText().length < 300) scrollIndicator.style.display = 'none';
+          else scrollIndicator.style.display = 'grid';
+          switchView('read', true); 
+        };
+        bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
       } else {
         switchView('edit', true);
       }
@@ -1106,21 +1196,21 @@
     blurSlider.addEventListener('input', (e) => scheduleCssUpdate('blur', e.target.value));
 
     let lastRatioUpdate = 0; let ratioUpdateQueued = false;
-    ratioSlider.addEventListener('input', async (e) => {
+    ratioSlider.addEventListener('input', (e) => {
       currentBionicRatio = e.target.value / 100;
-      
-      const executeUpdate = async () => {
+      const updateText = () => {
         if (currentRawHTML) {
-          outputText.innerHTML = await applyBionicDOM(currentRawHTML, currentBionicRatio);
+          bionicWorker.onmessage = (ev) => { outputText.innerHTML = ev.data; };
+          bionicWorker.postMessage({ html: currentRawHTML, ratio: currentBionicRatio });
         }
       };
 
       const now = performance.now();
-      if (now - lastRatioUpdate > 100) {
-        lastRatioUpdate = now; executeUpdate();
+      if (now - lastRatioUpdate > 60) {
+        lastRatioUpdate = now; updateText();
       } else if (!ratioUpdateQueued) {
         ratioUpdateQueued = true;
-        setTimeout(() => { executeUpdate(); lastRatioUpdate = performance.now(); ratioUpdateQueued = false; }, 100);
+        setTimeout(() => { updateText(); lastRatioUpdate = performance.now(); ratioUpdateQueued = false; }, 60);
       }
       saveSettings(); 
     });
